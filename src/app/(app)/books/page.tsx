@@ -60,10 +60,10 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
           <ShelfControls facets={facets} counts={counts} total={result.total} />
           {result.items.length === 0 ? (
             <EmptyState icon="🔍" title="条件に合う本が見つかりませんでした" description="検索語や絞り込み条件を変えてみてください。" />
-          ) : sp.view === "list" ? (
-            <BookList books={result.items} />
-          ) : (
+          ) : sp.view === "grid" ? (
             <BookGrid books={result.items} />
+          ) : (
+            <BookList books={result.items} />
           )}
           {result.hasMore ? (
             <div className="flex justify-center pt-2">

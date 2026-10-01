@@ -7,7 +7,7 @@ import { getQuote } from "@/server/services/quotes";
 import { PageHeader } from "@/components/layout/page-header";
 import { BookCover } from "@/components/books/book-cover";
 import { TagChip, SectionTitle } from "@/components/books/bits";
-import { QuoteMenu } from "@/components/quotes/quote-menu";
+import { DeleteQuoteButton, QuoteMenu } from "@/components/quotes/quote-menu";
 import { Button } from "@/components/ui/button";
 import { AiQuoteAnalysis } from "@/components/ai/ai-quote-analysis";
 
@@ -96,6 +96,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
           保存日 {format(q.createdAt, "yyyy/M/d HH:mm")}
           {q.updatedAt.getTime() - q.createdAt.getTime() > 60000 ? ` ・ 更新 ${format(q.updatedAt, "yyyy/M/d")}` : ""}
         </p>
+        <DeleteQuoteButton id={q.id} />
       </article>
     </div>
   );

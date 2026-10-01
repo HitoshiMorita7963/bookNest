@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { Heart } from "lucide-react";
 import { TagChip } from "@/components/books/bits";
+import { QuoteCardMenu } from "./quote-menu";
 
 export interface QuoteCardData {
   id: string;
@@ -22,7 +23,10 @@ export function QuoteCard({ quote, highlight }: { quote: QuoteCardData; highligh
   return (
     <article className="relative rounded-2xl border bg-card p-4 md:p-5">
       <Link href={`/quotes/${quote.id}`} className="absolute inset-0 rounded-2xl" aria-label="フレーズの詳細を開く" />
-      <blockquote className="quote-text relative border-l-2 border-highlight pl-3 text-[16px]">
+      <div className="absolute top-2 right-2 z-10">
+        <QuoteCardMenu id={quote.id} />
+      </div>
+      <blockquote className="quote-text relative border-l-2 border-highlight pr-8 pl-3 text-[16px]">
         「{highlight ? <Highlighted text={quote.text} q={highlight} /> : quote.text}」
       </blockquote>
       <div className="relative mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const WIDTHS = [375, 390, 414, 430, 768, 1024, 1440];
-const PAGES = ["/", "/books", "/books?view=list", "/reading", "/tsundoku", "/search?q=本", "/quotes", "/knowledge", "/knowledge/map", "/stats", "/calendar", "/goals", "/authors", "/series", "/shelves", "/paths", "/insights", "/life", "/ai", "/settings", "/more", "/books/new"];
+const PAGES = ["/", "/books", "/books?view=grid", "/reading", "/tsundoku", "/search?q=本", "/quotes", "/knowledge", "/knowledge/map", "/stats", "/calendar", "/goals", "/authors", "/series", "/shelves", "/paths", "/insights", "/life", "/ai", "/settings", "/more", "/books/new"];
 
 test.beforeAll(async ({ browser }) => {
   // サンプルデータを投入（設定画面から）
@@ -74,4 +74,17 @@ test("アップロードの不正ファイルを拒否する", async ({ request 
   expect(res.status()).toBe(400);
   const traversal = await request.get("/api/files/..%2F..%2Fpackage.json");
   expect(traversal.status()).toBe(404);
+});
+
+test("本棚の表示（スクリーンショット）", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/books");
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: "tests/.e2e/books-list.png" });
+  await page.goto("/books?view=grid");
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: "tests/.e2e/books-grid.png" });
+  await page.goto("/quotes");
+  await page.waitForLoadState("networkidle");
+  await page.screenshot({ path: "tests/.e2e/quotes.png" });
 });

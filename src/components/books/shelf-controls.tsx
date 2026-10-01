@@ -46,7 +46,8 @@ export function ShelfControls({ facets, counts, total }: { facets: Facets; count
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const status = sp.get("status") ?? "";
-  const view = sp.get("view") ?? "grid";
+  // 既定はリスト表示（スマホで一覧しやすいため）。?view=grid で表紙のグリッド表示
+  const view = sp.get("view") === "grid" ? "grid" : "list";
   const sort = (sp.get("sort") as SortKey) ?? "createdAt";
   const order = sp.get("order") ?? "";
   const activeFilters = FILTER_KEYS.filter((k) => sp.get(k)).length;
@@ -93,7 +94,7 @@ export function ShelfControls({ facets, counts, total }: { facets: Facets; count
         <Button
           variant="outline"
           size="icon"
-          onClick={() => update({ view: view === "grid" ? "list" : null })}
+          onClick={() => update({ view: view === "grid" ? null : "grid" })}
           aria-label={view === "grid" ? "リスト表示に切り替え" : "グリッド表示に切り替え"}
         >
           {view === "grid" ? <List /> : <LayoutGrid />}

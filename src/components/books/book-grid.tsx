@@ -19,7 +19,7 @@ export function BookGrid({ books, className }: { books: BookCardData[]; classNam
   return (
     <ul
       className={cn(
-        "grid grid-cols-2 gap-x-4 gap-y-6 min-[400px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8",
+        "grid grid-cols-3 gap-x-3 gap-y-5 min-[500px]:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8",
         className,
       )}
     >
