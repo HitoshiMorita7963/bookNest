@@ -14,7 +14,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const { q = "" } = await searchParams;
   const query = q.slice(0, 100);
   const r = query.trim() ? await searchAll(prisma, query) : null;
-  const total = r ? r.bookCount + r.records.length + r.quoteCount + r.knowledgeCount + r.notes.length + r.authors.length : 0;
+  const total = r ? r.bookCount + r.records.length + r.quoteCount + r.knowledgeCount + r.notes.length + r.authors.length + r.creativeNotes.length + r.projects.length : 0;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -22,7 +22,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <SearchBox initial={query} />
       {!r ? (
         <div className="mt-6 rounded-xl bg-muted/50 p-4 text-sm leading-relaxed text-muted-foreground">
-          本のタイトル・著者・ISBN・出版社・タグに加えて、感想・要約・学んだこと・読書メモ・保存したフレーズ・知識ノートをまとめて検索できます。
+          本のタイトル・著者・ISBN・出版社・タグに加えて、感想・要約・学んだこと・読書メモ・保存したフレーズ・知識ノート・創作メモ・小説プロジェクトをまとめて検索できます。
         </div>
       ) : total === 0 ? (
         <EmptyState className="mt-6" icon="🔍" title={`「${query}」に一致するものはありませんでした`} description="別のキーワードや、短い単語で検索してみてください。" />
@@ -70,6 +70,29 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                     <Link href={`/knowledge/${k.id}`} className="block rounded-xl border bg-card p-3 hover:bg-accent/50">
                       <p className="font-medium">{k.title}</p>
                       {k.content ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{snippet(k.content, r.terms)}</p> : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {r.projects.length || r.creativeNotes.length ? (
+            <section>
+              <SectionTitle>✍️ 創作</SectionTitle>
+              <ul className="space-y-2">
+                {r.projects.map((p) => (
+                  <li key={p.id}>
+                    <Link href={`/creative/projects/${p.id}`} className="block rounded-xl border bg-card p-3 hover:bg-accent/50">
+                      <p className="font-medium">✍️ {p.title}</p>
+                      {p.logline ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{p.logline}</p> : null}
+                    </Link>
+                  </li>
+                ))}
+                {r.creativeNotes.map((n) => (
+                  <li key={n.id}>
+                    <Link href={`/creative/notes/${n.id}`} className="block rounded-xl border bg-card p-3 hover:bg-accent/50">
+                      <p className="font-medium">💡 {n.title}</p>
+                      {n.content ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{snippet(n.content, r.terms)}</p> : null}
                     </Link>
                   </li>
                 ))}

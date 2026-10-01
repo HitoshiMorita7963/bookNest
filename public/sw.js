@@ -8,7 +8,7 @@
  *    （本棚・本詳細・読書記録・フレーズなど一度開いたページはオフラインでも閲覧可能）
  *  - POST（Server Actions） : キャッシュしない
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `booknest-static-${VERSION}`;
 const PAGES = `booknest-pages-${VERSION}`;
 const IMAGES = `booknest-images-${VERSION}`;

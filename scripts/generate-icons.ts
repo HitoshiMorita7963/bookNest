@@ -3,8 +3,8 @@ import sharp from "sharp";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const BG = "#245c50";
-const PAPER = "#faf6ec";
+const BG = "#1f4f99";
+const PAPER = "#f6f9ff";
 const ACCENT = "#e3b25a";
 
 /** 開いた本と、その下の「巣（nest）」を表す曲線 */

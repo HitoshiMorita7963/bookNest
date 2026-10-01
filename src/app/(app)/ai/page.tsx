@@ -9,8 +9,8 @@ export const metadata = { title: "AI司書" };
 export default async function AiPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const { c } = await searchParams;
   const [convs, conv, status] = await Promise.all([
-    prisma.aIConversation.findMany({ orderBy: { updatedAt: "desc" }, take: 100, select: { id: true, title: true, updatedAt: true } }),
-    c ? prisma.aIConversation.findUnique({ where: { id: c }, include: { messages: { orderBy: { createdAt: "asc" } } } }) : null,
+    prisma.aIConversation.findMany({ where: { projectId: null }, orderBy: { updatedAt: "desc" }, take: 100, select: { id: true, title: true, updatedAt: true } }),
+    c ? prisma.aIConversation.findFirst({ where: { id: c, projectId: null }, include: { messages: { orderBy: { createdAt: "asc" } } } }) : null,
     aiAvailable(prisma),
   ]);
   const items = convs.map((x) => ({ id: x.id, title: x.title, updatedAt: x.updatedAt.toISOString() }));

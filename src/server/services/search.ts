@@ -41,7 +41,9 @@ export async function searchAll(db: Db, q: string, take = 20) {
   };
   const sessionWhere = { AND: terms.map((t) => ({ note: { contains: t } })) };
 
-  const [books, bookCount, records, quotes, quoteCount, knowledge, knowledgeCount, notes, authors] = await Promise.all([
+  const creativeWhere = { AND: terms.map((t) => ({ OR: [{ title: { contains: t } }, { content: { contains: t } }, { tags: { some: { tag: { name: { contains: t } } } } }] })) };
+  const projectWhere = { AND: terms.map((t) => ({ OR: [{ title: { contains: t } }, { logline: { contains: t } }, { synopsis: { contains: t } }, { theme: { contains: t } }] })) };
+  const [books, bookCount, records, quotes, quoteCount, knowledge, knowledgeCount, notes, authors, creativeNotes, projects] = await Promise.all([
     db.book.findMany({ where: buildBookWhere({ q }), include: bookListInclude, take, orderBy: { updatedAt: "desc" } }),
     db.book.count({ where: buildBookWhere({ q }) }),
     db.readingRecord.findMany({
@@ -70,8 +72,10 @@ export async function searchAll(db: Db, q: string, take = 20) {
       include: { _count: { select: { books: true } } },
       take: 10,
     }),
+    db.creativeNote.findMany({ where: creativeWhere, select: { id: true, title: true, content: true, category: true }, orderBy: { updatedAt: "desc" }, take }),
+    db.novelProject.findMany({ where: projectWhere, select: { id: true, title: true, logline: true }, orderBy: { updatedAt: "desc" }, take: 10 }),
   ]);
-  return { terms, books, bookCount, records, quotes, quoteCount, knowledge, knowledgeCount, notes, authors };
+  return { terms, books, bookCount, records, quotes, quoteCount, knowledge, knowledgeCount, notes, authors, creativeNotes, projects };
 }
 
 /** テキストの中から検索語周辺を抜き出す */

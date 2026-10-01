@@ -177,7 +177,7 @@ export async function deleteBook(db: Db, id: string) {
 export async function cleanupOrphans(db: Tx) {
   await db.author.deleteMany({ where: { books: { none: {} }, profile: null } });
   await db.series.deleteMany({ where: { books: { none: {} }, description: null } });
-  await db.tag.deleteMany({ where: { books: { none: {} }, quotes: { none: {} }, knowledge: { none: {} } } });
+  await db.tag.deleteMany({ where: { books: { none: {} }, quotes: { none: {} }, knowledge: { none: {} }, creativeNotes: { none: {} } } });
 }
 
 async function openRecord(db: Tx, bookId: string) {

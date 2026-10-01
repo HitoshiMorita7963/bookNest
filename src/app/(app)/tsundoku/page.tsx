@@ -34,7 +34,7 @@ export default async function TsundokuPage({ searchParams }: { searchParams: Pro
     <div className="mx-auto max-w-4xl">
       <PageHeader title="積読" />
       {all.length === 0 ? (
-        <EmptyState icon="📕" title="積読はありません" description="購入した本を「所有」ステータスで登録すると、ここで管理できます。" />
+        <EmptyState icon="📕" title="積読はありません" description="購入した本を「積読」ステータスで登録すると、ここで管理できます。" />
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-3 gap-3">

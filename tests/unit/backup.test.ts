@@ -16,14 +16,30 @@ async function counts() {
     shelfBook: await db.shelfBook.count(),
     pathBook: await db.readingPathBook.count(),
     tag: await db.tag.count(),
+    creativeNote: await db.creativeNote.count(),
+    project: await db.novelProject.count(),
+    character: await db.character.count(),
+    scene: await db.scene.count(),
+    creativeLink: await db.creativeLink.count(),
+    aiConv: await db.aIConversation.count({ where: { projectId: { not: null } } }),
   };
 }
 
 describe("Backup", () => {
   it("round-trips all data through JSON and does not duplicate on re-import", async () => {
     await loadSampleData(db);
+    // 創作データも含めて往復できること
+    const book = await db.book.findFirstOrThrow();
+    const p = await db.novelProject.create({ data: { title: "作品" } });
+    const c = await db.character.create({ data: { projectId: p.id, name: "主人公" } });
+    const ch = await db.chapter.create({ data: { projectId: p.id, title: "第1章" } });
+    await db.scene.create({ data: { chapterId: ch.id, title: "出会い" } });
+    const n = await db.creativeNote.create({ data: { title: "アイデア", tags: { create: [{ tag: { connectOrCreate: { where: { name: "創作" }, create: { name: "創作" } } } }] } } });
+    await db.creativeLink.create({ data: { bookId: book.id, characterId: c.id, projectId: p.id, purpose: "人物造形" } });
+    await db.creativeLink.create({ data: { noteId: n.id, projectId: p.id } });
+    await db.aIConversation.create({ data: { title: "相談", projectId: p.id, messages: { create: [{ role: "user", content: "q" }] } } });
     const before = await counts();
-    const json = JSON.stringify(await exportJson(db));
+    const json = JSON.stringify(await exportJson(db, { includeAi: true }));
 
     await deleteAllData(db);
     expect((await counts()).book).toBe(0);

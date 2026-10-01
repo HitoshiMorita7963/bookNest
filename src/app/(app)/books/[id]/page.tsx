@@ -12,6 +12,7 @@ import { BookMenu, DeleteSessionButton, RecordCard, UnlinkRelatedButton } from "
 import { Button } from "@/components/ui/button";
 import { QuoteCard } from "@/components/quotes/quote-card";
 import { formatNumber } from "@/lib/utils";
+import { CreativeUsageSection } from "@/components/creative/usage-section";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -144,6 +145,8 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
               <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">この本から得た知識・理解をノートとして残しましょう。</p>
             )}
           </section>
+
+          <CreativeUsageSection source={{ kind: "book", id: book.id }} defaultTitle={book.title} defaultContent={`『${book.title}』から`} />
 
           {/* 読書メモ */}
           {book.sessions.some((s) => s.note) ? (
