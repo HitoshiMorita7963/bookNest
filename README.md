@@ -72,6 +72,10 @@ npm run dev
 | `GOOGLE_BOOKS_API_KEY` | | Google Books API キー（任意。未設定でも動作しますが回数制限が厳しくなります） |
 | `AI_PROVIDER` | | `anthropic` または `none`。未設定時はキーがあれば `anthropic` |
 | `AI_API_KEY` | | Anthropic API キー。未設定の場合、AI 司書は「検索モード」で動作します |
+| `APP_PASSWORD` | クラウドでは✅ | ログイン用パスワード。設定するとログインが必要になります |
+| `AUTH_SECRET` | | セッション署名用のランダムな文字列（任意） |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | クラウドでは✅ | クラウドの DB（Turso）。設定するとローカルの SQLite の代わりに使います |
+| `BLOB_READ_WRITE_TOKEN` | クラウドでは✅ | 画像の保存先（Vercel Blob）。Vercel で Blob を接続すると自動設定 |
 | `AI_MODEL` | | 使用モデル（既定 `claude-opus-5`） |
 | `OCR_PROVIDER` | | `tesseract`（既定・端末内処理）または `google-vision` |
 | `OCR_API_KEY` | | `google-vision` 使用時の Google Cloud Vision API キー |
@@ -104,6 +108,16 @@ npm run build
 ```bash
 npm run start
 ```
+
+## スマホだけで使う（クラウドに公開）
+
+PC を起動していなくてもスマホから使えるよう、無料のクラウドサービス（Vercel + Turso + Vercel Blob）に公開できます。
+手順は **[docs/cloud-setup.md](docs/cloud-setup.md)** を参照してください。
+
+- `TURSO_DATABASE_URL` を設定すると、DB がローカルの SQLite ファイルからクラウドの Turso（libSQL）に切り替わります。
+- `APP_PASSWORD` を設定するとパスワードログインが有効になります（クラウド公開時は必須）。
+- `BLOB_READ_WRITE_TOKEN` を設定すると、アップロード画像の保存先が Vercel Blob（非公開）になります。
+- `npm run cloud:setup` で Turso にテーブルを作成、`npm run cloud:copy` で PC のデータを Turso にコピーします。
 
 ## PWA について
 
@@ -156,7 +170,7 @@ npm run build
 npm run test:e2e
 ```
 
-E2E テスト（Playwright・14件）：本番ビルドを専用 DB で起動し、スマートフォン幅（390px）で「アプリ起動 → 本を追加 → 本棚 → 本詳細 → 読書開始 → 進捗更新 → フレーズ保存 → 読了 → 統計確認」を通しで確認します。あわせて 375 / 390 / 414 / 430 / 768 / 1024 / 1440px の各幅で主要 22 画面に横スクロールが無いこと、ナビゲーションの切替、タップ領域（44px 以上）、PWA（マニフェスト・Service Worker）、不正な画像アップロードの拒否を確認します。初回は `npx playwright install chromium` が必要です。
+E2E テスト（Playwright・14件。`E2E_MODE=cloud` でクラウド構成〈Turso アダプタ＋ログイン〉の16件）：本番ビルドを専用 DB で起動し、スマートフォン幅（390px）で「アプリ起動 → 本を追加 → 本棚 → 本詳細 → 読書開始 → 進捗更新 → フレーズ保存 → 読了 → 統計確認」を通しで確認します。あわせて 375 / 390 / 414 / 430 / 768 / 1024 / 1440px の各幅で主要 22 画面に横スクロールが無いこと、ナビゲーションの切替、タップ領域（44px 以上）、PWA（マニフェスト・Service Worker）、不正な画像アップロードの拒否を確認します。初回は `npx playwright install chromium` が必要です。
 
 その他：`npm run lint`、`npm run typecheck`
 
@@ -167,7 +181,7 @@ E2E テスト（Playwright・14件）：本番ビルドを専用 DB で起動し
 - React の自動エスケープに加え、AI の回答表示も HTML を挿入しない独自レンダラーで描画。
 - 画像アップロード：MIME タイプ・サイズ制限、sharp による実デコード検証（偽装ファイルの拒否）、リサイズ・WebP 圧縮、推測不能なファイル名、配信時のパス検証。
 - セキュリティヘッダー（`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`）。
-- 個人用アプリのためログイン機能はありません。インターネットに公開する場合は、リバースプロキシでの認証（Basic 認証、Cloudflare Access、Tailscale など）を必ず併用してください。
+- `APP_PASSWORD` を設定するとパスワードログインが有効になります（HMAC 署名付き Cookie、180日間有効、失敗時は遅延）。クラウドに公開する場合は必ず設定してください。PC 内だけで使う場合は未設定でも構いません。
 
 ## ディレクトリ構成
 
