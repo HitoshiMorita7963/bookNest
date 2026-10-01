@@ -23,3 +23,4 @@ tests/.tmp/
 # test output
 playwright-report/
 test-results/
+tests/.e2e/

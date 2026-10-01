@@ -48,7 +48,7 @@ function countBy<T>(items: T[], key: (t: T) => string | string[] | null | undefi
 export async function analyzeTrends(db: Db, period: InsightPeriod, now = new Date()) {
   const { from, prevFrom } = rangeOf(period, now);
   const [records, prev, quotes, addedBooks] = await Promise.all([
-    completedIn(db, from, now),
+    completedIn(db, from, new Date(now.getTime() + 1)),
     from && prevFrom ? completedIn(db, prevFrom, from) : Promise.resolve([]),
     db.quote.findMany({ where: from ? { createdAt: { gte: from } } : {}, select: { tags: { select: { tag: { select: { name: true } } } }, bookId: true } }),
     db.book.findMany({ where: from ? { createdAt: { gte: from } } : {}, select: { genre: true, tags: { select: { tag: { select: { name: true } } } } } }),

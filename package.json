@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:all": "vitest run && next build && playwright test"
   },
   "prisma": {
     "seed": "tsx --tsconfig tsconfig.json prisma/seed.ts"
@@ -68,5 +69,8 @@
     "@prisma/engines@6.19.3": true,
     "esbuild@0.28.2": true,
     "unrs-resolver@1.12.2": true
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }
