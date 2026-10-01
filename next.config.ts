@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   experimental: {
     serverActions: { bodySizeLimit: "12mb" },
+    // 一度表示した画面を30秒間は再利用し、戻る・タブ移動を速くする（保存操作時は revalidatePath で更新される）
+    staleTimes: { dynamic: 30, static: 180 },
   },
   async headers() {
     return [

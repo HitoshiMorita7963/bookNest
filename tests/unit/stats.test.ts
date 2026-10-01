@@ -119,3 +119,23 @@ describe("Reading paths & recommendations", () => {
     expect(recs[0].reasons.join()).toContain("シリーズ");
   });
 });
+
+describe("Stats page data (single-pass)", () => {
+  it("matches the individual stat functions for every period", async () => {
+    const { loadSampleData } = await import("@/server/services/sample");
+    const { getStatsPageData, getStreak } = await import("@/server/services/stats");
+    await loadSampleData(db);
+    const now = new Date();
+    for (const period of ["month", "year", "last12", "all"] as const) {
+      const d = await getStatsPageData(db, period, now);
+      const s = await getSummary(db, period, now);
+      expect({ ...d.summary, records: d.summary.records.length }).toEqual({ ...s, records: s.records.length });
+      expect({ period, m: d.monthly.map((x) => x.key) }).toEqual({ period, m: (await getMonthlySeries(db, period, now)).map((x) => x.key) });
+      expect(d.monthly).toEqual(await getMonthlySeries(db, period, now));
+      expect(d.genres).toEqual(await getGenreDistribution(db, period, now));
+      expect(d.ratings).toEqual(await getRatingDistribution(db, period, now));
+      expect(d.yearSummary.books).toBe((await getSummary(db, "year", now)).books);
+      expect(d.streak).toBe(await getStreak(db, now));
+    }
+  });
+});

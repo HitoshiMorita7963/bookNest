@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, format, startOfDay, startOfMonth, startOfYear, subMonths, subYears } from "date-fns";
+import { addDays, differenceInCalendarDays, format, startOfDay, startOfMonth, startOfYear, subDays, subMonths, subYears } from "date-fns";
 import type { Db } from "@/lib/db";
 
 export type Period = "month" | "year" | "last12" | "all";
@@ -39,9 +39,16 @@ async function sessionsIn(db: Db, from: Date | null, to: Date) {
   });
 }
 
+type CompletedRecord = Awaited<ReturnType<typeof completedRecords>>[number];
+type SessionRow = Awaited<ReturnType<typeof sessionsIn>>[number];
+
 export async function getSummary(db: Db, period: Period, now = new Date()) {
   const { from, to } = periodRange(period, now);
   const [records, sessions] = await Promise.all([completedRecords(db, from, to), sessionsIn(db, from, to)]);
+  return summarize(records, sessions);
+}
+
+function summarize(records: CompletedRecord[], sessions: SessionRow[]) {
   const pagesRead = sessions.reduce((s, x) => s + x.pagesRead, 0);
   const minutes = sessions.reduce((s, x) => s + (x.minutes ?? 0), 0);
   const durations = records
@@ -186,4 +193,80 @@ export async function getTopAuthors(db: Db, period: Period, take = 5, now = new 
     }
   }
   return [...map.values()].sort((a, b) => b.count - a.count).slice(0, take);
+}
+
+/**
+ * 統計ページ用：DB への問い合わせを2回（読了記録・読書セッション）にまとめ、
+ * 期間別の集計・月別推移・ジャンル・評価・ヒートマップ・連続日数をメモリ上で計算する。
+ * （クラウド DB では問い合わせ回数がそのまま表示速度に影響するため）
+ */
+export async function getStatsPageData(db: Db, period: Period, now = new Date()) {
+  const { from } = periodRange(period, now);
+  const yearStart = startOfYear(now);
+  const heatFrom = startOfDay(subDays(now, 364));
+  const monthlyFrom = period === "month" ? startOfMonth(subMonths(now, 5)) : from;
+  // 必要な範囲のうち最も古い日付からまとめて取得
+  const candidates = [from, yearStart, heatFrom, monthlyFrom];
+  const earliest = candidates.includes(null) ? null : new Date(Math.min(...candidates.map((d) => d!.getTime())));
+  const [records, sessions] = await Promise.all([completedRecords(db, earliest, now), sessionsIn(db, earliest, now)]);
+
+  const inRange = <T,>(rows: T[], get: (r: T) => Date, start: Date | null) => (start ? rows.filter((r) => get(r) >= start) : rows);
+  const pRecords = inRange(records, (r) => r.finishedAt!, from);
+  const pSessions = inRange(sessions, (s) => s.date, from);
+
+  // 月別推移
+  let mFrom = monthlyFrom;
+  if (!mFrom) {
+    const dates = [...records.map((r) => r.finishedAt!), ...sessions.map((s) => s.date)];
+    mFrom = startOfMonth(dates.length ? new Date(Math.min(...dates.map((d) => d.getTime()))) : subMonths(now, 11));
+    if (differenceInCalendarDays(now, mFrom) < 330) mFrom = startOfMonth(subMonths(now, 11));
+  }
+  const monthly: { key: string; label: string; books: number; pages: number }[] = [];
+  for (let d = startOfMonth(mFrom); d <= now; d = startOfMonth(addDays(d, 32))) monthly.push({ key: format(d, "yyyy-MM"), label: format(d, "yy/M"), books: 0, pages: 0 });
+  const idx = new Map(monthly.map((m, i) => [m.key, i]));
+  for (const r of records) {
+    const i = idx.get(format(r.finishedAt!, "yyyy-MM"));
+    if (i != null) monthly[i].books++;
+  }
+  for (const s of sessions) {
+    const i = idx.get(format(s.date, "yyyy-MM"));
+    if (i != null) monthly[i].pages += s.pagesRead;
+  }
+
+  // ジャンル・評価
+  const genreMap = new Map<string, number>();
+  for (const r of pRecords) genreMap.set(r.book.genre ?? "未分類", (genreMap.get(r.book.genre ?? "未分類") ?? 0) + 1);
+  const genres = [...genreMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  const ratings = [5, 4, 3, 2, 1].map((r) => ({ rating: r, label: "★".repeat(r), count: pRecords.filter((x) => x.rating === r).length }));
+
+  // ヒートマップ（過去1年）と連続読書日数
+  const activity: Record<string, { pages: number; minutes: number; sessions: number; books: number }> = {};
+  for (const s of sessions) {
+    if (s.date < heatFrom) continue;
+    const k = format(s.date, "yyyy-MM-dd");
+    const v = (activity[k] ??= { pages: 0, minutes: 0, sessions: 0, books: 0 });
+    v.pages += s.pagesRead;
+    v.minutes += s.minutes ?? 0;
+    v.sessions++;
+  }
+  let streak = 0;
+  let d = startOfDay(now);
+  if (!activity[format(d, "yyyy-MM-dd")]) d = addDays(d, -1);
+  while (activity[format(d, "yyyy-MM-dd")]) {
+    streak++;
+    d = addDays(d, -1);
+  }
+
+  return {
+    summary: summarize(pRecords, pSessions),
+    yearSummary: summarize(
+      records.filter((r) => r.finishedAt! >= yearStart),
+      sessions.filter((s) => s.date >= yearStart),
+    ),
+    monthly,
+    genres,
+    ratings,
+    activity,
+    streak,
+  };
 }

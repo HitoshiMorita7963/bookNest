@@ -15,12 +15,30 @@ const UNREAD = ["WANT_TO_READ", "OWNED", "PAUSED"];
  *  - 読書中・高評価本と同じタグ / 長く積んでいる本
  */
 export async function recommendNext(db: Db, take = 8): Promise<Recommendation[]> {
-  const candidates = await db.book.findMany({
-    where: { status: { in: UNREAD } },
-    include: { ...bookListInclude, tags: { select: { tagId: true } } },
-    take: 500,
-    orderBy: { updatedAt: "desc" },
-  });
+  // 必要なデータは互いに独立しているので並行して取得する（クラウド DB での待ち時間を短縮）
+  const [candidates, paths, seriesBooks, favAuthors, anchors] = await Promise.all([
+    db.book.findMany({
+      where: { status: { in: UNREAD } },
+      include: { ...bookListInclude, tags: { select: { tagId: true } } },
+      take: 500,
+      orderBy: { updatedAt: "desc" },
+    }),
+    db.readingPath.findMany({
+      include: { books: { orderBy: { position: "asc" }, include: { book: { select: { id: true, status: true } } } } },
+    }),
+    db.book.findMany({
+      where: { seriesId: { not: null } },
+      select: { id: true, seriesId: true, seriesNumber: true, status: true, series: { select: { title: true } } },
+    }),
+    db.bookAuthor.findMany({
+      where: { book: { rating: { gte: 4 } } },
+      select: { authorId: true, author: { select: { name: true } } },
+    }),
+    db.book.findMany({
+      where: { OR: [{ status: "READING" }, { rating: { gte: 4 } }] },
+      select: { status: true, tags: { select: { tagId: true, tag: { select: { name: true } } } } },
+    }),
+  ]);
   if (!candidates.length) return [];
   const map = new Map<string, Recommendation>(candidates.map((b) => [b.id, { book: b, reasons: [], score: 0 }]));
   const add = (id: string, reason: string, score: number) => {
@@ -31,19 +49,12 @@ export async function recommendNext(db: Db, take = 8): Promise<Recommendation[]>
   };
 
   // 読書ルートの次の本
-  const paths = await db.readingPath.findMany({
-    include: { books: { orderBy: { position: "asc" }, include: { book: { select: { id: true, status: true } } } } },
-  });
   for (const p of paths) {
     const next = p.books.find((pb) => pb.book.status !== "COMPLETED" && pb.book.status !== "DROPPED");
     if (next) add(next.book.id, `読書ルート「${p.title}」の次の本`, 6);
   }
 
   // シリーズの続巻（読了した巻の次の巻）
-  const seriesBooks = await db.book.findMany({
-    where: { seriesId: { not: null } },
-    select: { id: true, seriesId: true, seriesNumber: true, status: true, series: { select: { title: true } } },
-  });
   const bySeries = new Map<string, typeof seriesBooks>();
   for (const b of seriesBooks) bySeries.set(b.seriesId!, [...(bySeries.get(b.seriesId!) ?? []), b]);
   for (const list of bySeries.values()) {
@@ -55,20 +66,12 @@ export async function recommendNext(db: Db, take = 8): Promise<Recommendation[]>
   }
 
   // 高評価（4以上）の著者の未読
-  const favAuthors = await db.bookAuthor.findMany({
-    where: { book: { rating: { gte: 4 } } },
-    select: { authorId: true, author: { select: { name: true } } },
-  });
   const favMap = new Map(favAuthors.map((a) => [a.authorId, a.author.name]));
   for (const c of candidates) {
     for (const a of c.authors) if (favMap.has(a.authorId)) add(c.id, `高評価した${favMap.get(a.authorId)}の作品`, 3);
   }
 
   // 読書中・高評価の本と同じタグ
-  const anchors = await db.book.findMany({
-    where: { OR: [{ status: "READING" }, { rating: { gte: 4 } }] },
-    select: { status: true, tags: { select: { tagId: true, tag: { select: { name: true } } } } },
-  });
   const readingTags = new Map<string, string>();
   const likedTags = new Map<string, string>();
   for (const a of anchors) for (const t of a.tags) (a.status === "READING" ? readingTags : likedTags).set(t.tagId, t.tag.name);

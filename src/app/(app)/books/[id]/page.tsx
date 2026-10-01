@@ -21,9 +21,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const book = await getBookDetail(prisma, id);
+  const [book, auto] = await Promise.all([getBookDetail(prisma, id), autoRelatedBooks(prisma, id, 8)]);
   if (!book) notFound();
-  const auto = await autoRelatedBooks(prisma, id, 8);
   const manual = [
     ...book.relatedTo.map((r) => r.to),
     ...book.relatedBy.map((r) => r.from),

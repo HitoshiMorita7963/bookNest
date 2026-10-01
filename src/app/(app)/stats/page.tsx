@@ -8,7 +8,7 @@ import { BarList, ColumnChart } from "@/components/stats/charts";
 import { ReadingHeatmap } from "@/components/stats/heatmap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/books/bits";
-import { PERIOD_LABEL, getDailyActivity, getGenreDistribution, getMonthlySeries, getRatingDistribution, getStreak, getSummary, type Period } from "@/server/services/stats";
+import { PERIOD_LABEL, getStatsPageData, type Period } from "@/server/services/stats";
 import { formatNumber } from "@/lib/utils";
 
 export const metadata = { title: "統計" };
@@ -17,15 +17,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const period: Period = sp.period && sp.period in PERIOD_LABEL ? (sp.period as Period) : "year";
   const now = new Date();
-  const [summary, monthly, genres, ratings, activity, streak, yearSummary] = await Promise.all([
-    getSummary(prisma, period, now),
-    getMonthlySeries(prisma, period, now),
-    getGenreDistribution(prisma, period, now),
-    getRatingDistribution(prisma, period, now),
-    getDailyActivity(prisma, subDays(now, 364), now),
-    getStreak(prisma, now),
-    getSummary(prisma, "year", now),
-  ]);
+  const { summary, monthly, genres, ratings, activity, streak, yearSummary } = await getStatsPageData(prisma, period, now);
   const hasAny = summary.books > 0 || summary.pagesRead > 0;
 
   return (
