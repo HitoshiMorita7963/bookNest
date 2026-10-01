@@ -163,3 +163,92 @@ export function firstError(err: z.ZodError): string {
   const issue = err.issues[0];
   return issue?.message ?? "入力内容を確認してください";
 }
+
+/* ---------------- 創作 ---------------- */
+import { CREATIVE_CATEGORIES, LINK_SOURCE_KINDS, LINK_TARGET_KINDS, NOTE_STATUSES, PROJECT_STATUSES, SCENE_STATUSES } from "./constants";
+
+const reqText = (label: string, max: number) => z.string().trim().min(1, `${label}を入力してください`).max(max, `${max}文字以内で入力してください`);
+const longText = (max: number) => optText(max);
+
+export const creativeNoteInputSchema = z
+  .object({
+    title: z.string().trim().max(120, "120文字以内で入力してください").default(""),
+    content: z.string().max(20000, "20000文字以内で入力してください").default(""),
+    category: z.enum(CREATIVE_CATEGORIES).default("OTHER"),
+    status: z.enum(NOTE_STATUSES).default("IDEA"),
+    tags: nameList,
+  })
+  .refine((v) => v.title.trim() || v.content.trim(), { message: "タイトルか本文を入力してください", path: ["title"] })
+  .transform((v) => ({
+    ...v,
+    // タイトル未入力なら本文の書き出しをタイトルにする（素早く保存するため）
+    title: v.title.trim() || v.content.trim().split("\n")[0].slice(0, 40),
+  }));
+export type CreativeNoteInput = z.input<typeof creativeNoteInputSchema>;
+
+export const projectInputSchema = z.object({
+  title: reqText("作品タイトル", 120),
+  logline: longText(300),
+  synopsis: longText(20000),
+  theme: longText(300),
+  genre: longText(60),
+  status: z.enum(PROJECT_STATUSES).default("IDEA"),
+});
+export type ProjectInput = z.input<typeof projectInputSchema>;
+
+export const characterInputSchema = z.object({
+  name: reqText("名前", 80),
+  role: longText(40),
+  age: longText(40),
+  appearance: longText(5000),
+  personality: longText(5000),
+  background: longText(10000),
+  goal: longText(5000),
+  conflict: longText(5000),
+  speechStyle: longText(5000),
+  notes: longText(10000),
+});
+export type CharacterInput = z.input<typeof characterInputSchema>;
+
+export const relationshipInputSchema = z.object({
+  fromId: z.string().min(1).max(50),
+  toId: z.string().min(1).max(50),
+  label: reqText("関係", 40),
+  notes: longText(2000),
+});
+
+export const worldInputSchema = z.object({
+  title: reqText("項目名", 120),
+  category: z.string().trim().max(20).default("その他"),
+  content: z.string().max(20000).default(""),
+});
+export type WorldInput = z.input<typeof worldInputSchema>;
+
+export const plotInputSchema = z.object({
+  title: reqText("タイトル", 120),
+  summary: longText(10000),
+  status: z.enum(SCENE_STATUSES).default("IDEA"),
+  notes: longText(10000),
+});
+export type PlotInput = z.input<typeof plotInputSchema>;
+
+export const chapterInputSchema = z.object({
+  title: reqText("章タイトル", 120),
+  summary: longText(10000),
+});
+export type ChapterInput = z.input<typeof chapterInputSchema>;
+
+export const sceneInputSchema = z.object({
+  title: reqText("シーン名", 120),
+  summary: longText(10000),
+  content: longText(200000),
+  status: z.enum(SCENE_STATUSES).default("IDEA"),
+});
+export type SceneInput = z.input<typeof sceneInputSchema>;
+
+export const linkInputSchema = z.object({
+  source: z.object({ kind: z.enum(LINK_SOURCE_KINDS), id: z.string().min(1).max(50) }),
+  target: z.object({ kind: z.enum(LINK_TARGET_KINDS), id: z.string().min(1).max(50) }),
+  purpose: longText(60),
+});
+export type LinkInput = z.input<typeof linkInputSchema>;

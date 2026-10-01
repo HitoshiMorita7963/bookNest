@@ -32,6 +32,16 @@ const TABLES = [
   "knowledgeLink",
   "readingPath",
   "readingPathBook",
+  "creativeNote",
+  "creativeNoteTag",
+  "novelProject",
+  "character",
+  "characterRelationship",
+  "worldSetting",
+  "plot",
+  "chapter",
+  "scene",
+  "creativeLink",
   "aIConversation",
   "aIMessage",
 ] as const;
@@ -187,7 +197,7 @@ async function plan(db: Db, f: BackupFile): Promise<Plan> {
   }
   counts.book = { total: books.length, duplicate: dupBooks };
 
-  for (const table of ["readingRecord", "readingSession", "readingGoal", "quote", "knowledgeNote", "readingPath", "aIConversation", "aIMessage"] as const) {
+  for (const table of ["readingRecord", "readingSession", "readingGoal", "quote", "knowledgeNote", "readingPath", "creativeNote", "novelProject", "character", "characterRelationship", "worldSetting", "plot", "chapter", "scene", "creativeLink", "aIConversation", "aIMessage"] as const) {
     const rows = t[table] ?? [];
     const existing = new Set((await delegate(db, table).findMany()).map((r) => String(r.id)));
     let dup = 0;
@@ -224,8 +234,29 @@ const FK: Partial<Record<Table, Record<string, string>>> = {
   knowledgeLink: { fromId: "knowledgeNote", toId: "knowledgeNote" },
   readingPathBook: { pathId: "readingPath", bookId: "book" },
   aIMessage: { conversationId: "aIConversation" },
+  aIConversation: { projectId: "novelProject" },
+  creativeNoteTag: { noteId: "creativeNote", tagId: "tag" },
+  character: { projectId: "novelProject" },
+  characterRelationship: { projectId: "novelProject", fromId: "character", toId: "character" },
+  worldSetting: { projectId: "novelProject" },
+  plot: { projectId: "novelProject" },
+  chapter: { projectId: "novelProject" },
+  scene: { chapterId: "chapter" },
+  creativeLink: {
+    bookId: "book",
+    quoteId: "quote",
+    knowledgeId: "knowledgeNote",
+    noteId: "creativeNote",
+    projectId: "novelProject",
+    characterId: "character",
+    worldId: "worldSetting",
+    plotId: "plot",
+    chapterId: "chapter",
+    sceneId: "scene",
+    targetNoteId: "creativeNote",
+  },
 };
-const JOIN_TABLES = new Set<Table>(["bookAuthor", "bookTag", "bookRelation", "shelfBook", "quoteTag", "knowledgeTag", "bookKnowledge", "quoteKnowledge", "knowledgeLink", "readingPathBook"]);
+const JOIN_TABLES = new Set<Table>(["creativeNoteTag", "bookAuthor", "bookTag", "bookRelation", "shelfBook", "quoteTag", "knowledgeTag", "bookKnowledge", "quoteKnowledge", "knowledgeLink", "readingPathBook"]);
 
 export async function runImport(db: Db, text: string) {
   const f = parseBackup(text);
@@ -247,7 +278,7 @@ export async function runImport(db: Db, text: string) {
             const mapped = p.idMap[ref]?.get(String(v));
             if (mapped) row[col] = mapped;
             else if (!(f.tables[ref as Table] ?? []).some((r) => String(r.id) === String(v))) {
-              if (col === "seriesId" || col === "recordId" || (table === "quote" && col === "bookId")) row[col] = null;
+              if (col === "seriesId" || col === "recordId" || (table === "quote" && col === "bookId") || table === "aIConversation") row[col] = null;
               else skip = true;
             }
           }

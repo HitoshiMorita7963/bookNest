@@ -16,7 +16,7 @@ test("読書の一連の流れ（スマートフォン）", async ({ page }) => 
   await page.getByLabel("タイトル *").fill("E2Eテストの本");
   await page.getByLabel("著者").fill("テスト 太郎");
   await page.getByLabel("ページ数").fill("300");
-  await page.getByRole("radiogroup", { name: "ステータス" }).getByText("所有").click();
+  await page.getByRole("radiogroup", { name: "ステータス" }).getByText("積読").click();
   await page.getByLabel("タグ").fill("テスト、読書");
   await page.getByRole("button", { name: "本棚に追加" }).click();
   await expect(page).toHaveURL(/\/books\/c[a-z0-9]+$/);

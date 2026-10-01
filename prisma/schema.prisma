@@ -21,44 +21,45 @@ model User {
 }
 
 model Book {
-  id           String    @id @default(cuid())
-  title        String
-  titleKana    String?
-  subtitle     String?
-  description  String?
-  isbn10       String?
-  isbn13       String?   @unique
-  publisher    String?
-  publishedAt  String? // "2024", "2024-05", "2024-05-10" など部分日付を許容
+  id            String    @id @default(cuid())
+  title         String
+  titleKana     String?
+  subtitle      String?
+  description   String?
+  isbn10        String?
+  isbn13        String?   @unique
+  publisher     String?
+  publishedAt   String? // "2024", "2024-05", "2024-05-10" など部分日付を許容
   publishedYear Int?
-  pageCount    Int?
-  coverImage   String?
-  language     String?   @default("ja")
-  genre        String? // 主ジャンル（統計用）
+  pageCount     Int?
+  coverImage    String?
+  language      String?   @default("ja")
+  genre         String? // 主ジャンル（統計用）
   // WANT_TO_READ | OWNED | READING | COMPLETED | PAUSED | DROPPED
-  status       String    @default("WANT_TO_READ")
-  currentPage  Int       @default(0)
-  rating       Int? // 最新の読書記録の評価（並び替え用の非正規化）
-  acquiredAt   DateTime? // 購入・入手日（積読期間の計算に使用）
-  startedAt    DateTime? // 最新の読書開始日（非正規化）
-  finishedAt   DateTime? // 最新の読了日（非正規化）
-  seriesId     String?
-  seriesNumber Float?
-  isSample     Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  status        String    @default("WANT_TO_READ")
+  currentPage   Int       @default(0)
+  rating        Int? // 最新の読書記録の評価（並び替え用の非正規化）
+  acquiredAt    DateTime? // 購入・入手日（積読期間の計算に使用）
+  startedAt     DateTime? // 最新の読書開始日（非正規化）
+  finishedAt    DateTime? // 最新の読了日（非正規化）
+  seriesId      String?
+  seriesNumber  Float?
+  isSample      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  series     Series?           @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  authors    BookAuthor[]
-  tags       BookTag[]
-  records    ReadingRecord[]
-  sessions   ReadingSession[]
-  shelves    ShelfBook[]
-  quotes     Quote[]
-  knowledge  BookKnowledge[]
-  paths      ReadingPathBook[]
-  relatedTo  BookRelation[]    @relation("fromBook")
-  relatedBy  BookRelation[]    @relation("toBook")
+  series        Series?           @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  authors       BookAuthor[]
+  tags          BookTag[]
+  records       ReadingRecord[]
+  sessions      ReadingSession[]
+  shelves       ShelfBook[]
+  quotes        Quote[]
+  knowledge     BookKnowledge[]
+  paths         ReadingPathBook[]
+  relatedTo     BookRelation[]    @relation("fromBook")
+  relatedBy     BookRelation[]    @relation("toBook")
+  creativeLinks CreativeLink[]
 
   @@index([status])
   @@index([title])
@@ -104,12 +105,13 @@ model Series {
 }
 
 model Tag {
-  id        String         @id @default(cuid())
-  name      String         @unique
-  createdAt DateTime       @default(now())
-  books     BookTag[]
-  quotes    QuoteTag[]
-  knowledge KnowledgeTag[]
+  id            String            @id @default(cuid())
+  name          String            @unique
+  createdAt     DateTime          @default(now())
+  books         BookTag[]
+  quotes        QuoteTag[]
+  knowledge     KnowledgeTag[]
+  creativeNotes CreativeNoteTag[]
 }
 
 model BookTag {
@@ -124,10 +126,10 @@ model BookTag {
 
 // 本ごとの読書記録（再読に対応するため Book とは別）
 model ReadingRecord {
-  id         String    @id @default(cuid())
+  id         String           @id @default(cuid())
   bookId     String
   // READING | COMPLETED | PAUSED | DROPPED
-  status     String    @default("READING")
+  status     String           @default("READING")
   startedAt  DateTime?
   finishedAt DateTime?
   rating     Int?
@@ -136,9 +138,9 @@ model ReadingRecord {
   learned    String?
   memorable  String?
   questions  String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  book       Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  book       Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
   sessions   ReadingSession[]
 
   @@index([bookId])
@@ -217,6 +219,7 @@ model Quote {
   book          Book?            @relation(fields: [bookId], references: [id], onDelete: SetNull)
   tags          QuoteTag[]
   knowledge     QuoteKnowledge[]
+  creativeLinks CreativeLink[]
 
   @@index([bookId])
   @@index([createdAt])
@@ -234,18 +237,19 @@ model QuoteTag {
 
 // 読書から得た知識・理解
 model KnowledgeNote {
-  id        String           @id @default(cuid())
-  title     String
-  content   String           @default("")
-  category  String?
-  isSample  Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  tags      KnowledgeTag[]
-  books     BookKnowledge[]
-  quotes    QuoteKnowledge[]
-  linksFrom KnowledgeLink[]  @relation("linkFrom")
-  linksTo   KnowledgeLink[]  @relation("linkTo")
+  id            String           @id @default(cuid())
+  title         String
+  content       String           @default("")
+  category      String?
+  isSample      Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  tags          KnowledgeTag[]
+  books         BookKnowledge[]
+  quotes        QuoteKnowledge[]
+  linksFrom     KnowledgeLink[]  @relation("linkFrom")
+  linksTo       KnowledgeLink[]  @relation("linkTo")
+  creativeLinks CreativeLink[]
 
   @@index([title])
   @@index([category])
@@ -330,11 +334,15 @@ model ReadingPathBook {
 }
 
 model AIConversation {
-  id        String      @id @default(cuid())
-  title     String      @default("新しい会話")
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  messages  AIMessage[]
+  id             String        @id @default(cuid())
+  title          String        @default("新しい会話")
+  // null = AI司書 / 値あり = その作品のAI編集者（既存データを作り直さないよう外部キーは張らない。作品削除時はサービス側で削除）
+  projectId      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  messages       AIMessage[]
+
+  @@index([projectId])
 }
 
 model AIMessage {
@@ -347,4 +355,227 @@ model AIMessage {
   conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
+}
+
+// ======================================================================
+// 創作支援：創作メモ・小説プロジェクト・読書→創作の紐付け
+// ======================================================================
+
+// 創作メモ（読書中や日常で思いついたアイデア）
+model CreativeNote {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @default("")
+  // CHARACTER | SETTING | PLOT | SCENE | DIALOGUE | DESCRIPTION | THEME | MOTIF | TITLE | OTHER
+  category  String   @default("OTHER")
+  // IDEA | IN_USE | USED | ARCHIVED
+  status    String   @default("IDEA")
+  isSample  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tags      CreativeNoteTag[]
+  usedIn    CreativeLink[]    @relation("linkFromNote") // このメモを使っている作品・人物など
+  materials CreativeLink[]    @relation("linkToNote") // このメモの元になった本・フレーズ・知識
+
+  @@index([category])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model CreativeNoteTag {
+  noteId String
+  tagId  String
+  note   CreativeNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@index([tagId])
+}
+
+// 小説プロジェクト
+model NovelProject {
+  id        String   @id @default(cuid())
+  title     String
+  logline   String? // 一行あらすじ
+  synopsis  String? // 作品概要
+  theme     String?
+  genre     String?
+  // IDEA | PLANNING | WRITING | COMPLETED | ON_HOLD
+  status    String   @default("IDEA")
+  isSample  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  characters      Character[]
+  relationships   CharacterRelationship[]
+  worldSettings   WorldSetting[]
+  plots           Plot[]
+  chapters        Chapter[]
+  links           CreativeLink[]          @relation("linkProject")
+
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model Character {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  role        String? // 主人公・ヒロイン・ライバル など（自由入力）
+  age         String?
+  appearance  String?
+  personality String?
+  background  String?
+  goal        String?
+  conflict    String?
+  speechStyle String?
+  notes       String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project       NovelProject            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  relationsFrom CharacterRelationship[] @relation("relFrom")
+  relationsTo   CharacterRelationship[] @relation("relTo")
+  links         CreativeLink[]
+
+  @@index([projectId])
+}
+
+// 人物同士の関係（将来の相関図用）
+model CharacterRelationship {
+  id        String   @id @default(cuid())
+  projectId String
+  fromId    String
+  toId      String
+  label     String // 恋愛・ライバル・幼馴染 など自由入力
+  notes     String?
+  createdAt DateTime @default(now())
+
+  project NovelProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  from    Character    @relation("relFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to      Character    @relation("relTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([fromId])
+  @@index([toId])
+}
+
+model WorldSetting {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  // 世界・歴史・地理・文化・社会・宗教・技術・魔法・政治・経済・その他
+  category  String   @default("その他")
+  content   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project NovelProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  links   CreativeLink[]
+
+  @@index([projectId])
+}
+
+model Plot {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  summary   String?
+  position  Int      @default(0)
+  // IDEA | OUTLINE | DRAFT | REVISED | COMPLETED
+  status    String   @default("IDEA")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project NovelProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  links   CreativeLink[]
+
+  @@index([projectId])
+}
+
+model Chapter {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  summary   String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project NovelProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes  Scene[]
+  links   CreativeLink[]
+
+  @@index([projectId])
+}
+
+model Scene {
+  id        String   @id @default(cuid())
+  chapterId String
+  title     String
+  summary   String?
+  content   String? // 本文の下書き（将来の本文エディタ用）
+  position  Int      @default(0)
+  // IDEA | OUTLINE | DRAFT | REVISED | COMPLETED
+  status    String   @default("IDEA")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chapter Chapter        @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  links   CreativeLink[]
+
+  @@index([chapterId])
+}
+
+/**
+ * 読書 → 創作 の紐付け（参考資料）
+ * 元（source）：本・フレーズ・知識・創作メモ のいずれか1つ
+ * 先（target）：作品・人物・世界観・プロット・章・シーン・創作メモ のいずれか1つ
+ * projectId は作品内の要素に紐付けた場合に必ず設定する（作品単位の集計・逆引き用）
+ * purpose は「何のための参考資料か」（人物造形・会話・情景描写 など）
+ */
+model CreativeLink {
+  id           String   @id @default(cuid())
+  // 元
+  bookId       String?
+  quoteId      String?
+  knowledgeId  String?
+  noteId       String?
+  // 先
+  projectId    String?
+  characterId  String?
+  worldId      String?
+  plotId       String?
+  chapterId    String?
+  sceneId      String?
+  targetNoteId String?
+  purpose      String?
+  createdAt    DateTime @default(now())
+
+  book       Book?          @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  quote      Quote?         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  knowledge  KnowledgeNote? @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  note       CreativeNote?  @relation("linkFromNote", fields: [noteId], references: [id], onDelete: Cascade)
+  project    NovelProject?  @relation("linkProject", fields: [projectId], references: [id], onDelete: Cascade)
+  character  Character?     @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  world      WorldSetting?  @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  plot       Plot?          @relation(fields: [plotId], references: [id], onDelete: Cascade)
+  chapter    Chapter?       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  scene      Scene?         @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  targetNote CreativeNote?  @relation("linkToNote", fields: [targetNoteId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+  @@index([quoteId])
+  @@index([knowledgeId])
+  @@index([noteId])
+  @@index([projectId])
+  @@index([characterId])
+  @@index([worldId])
+  @@index([plotId])
+  @@index([chapterId])
+  @@index([sceneId])
+  @@index([targetNoteId])
 }

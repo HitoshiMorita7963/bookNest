@@ -39,7 +39,7 @@ describe("Book", () => {
     expect(d?.authors.map((a) => a.author.name)).toEqual(["夏目 漱石"]);
     expect(d?.tags.map((t) => t.tag.name).sort()).toEqual(["日本文学", "近代"].sort());
     expect(d?.series?.title).toBe("漱石全集");
-    expect(d?.acquiredAt).not.toBeNull(); // 所有で登録すると入手日が入る
+    expect(d?.acquiredAt).not.toBeNull(); // 積読で登録すると入手日が入る
   });
 
   it("rejects empty title and invalid ISBN", async () => {

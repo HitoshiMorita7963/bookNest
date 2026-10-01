@@ -253,6 +253,8 @@ export async function deleteSampleData(db: Db) {
     await tx.quote.deleteMany({ where: { isSample: true } });
     await tx.knowledgeNote.deleteMany({ where: { isSample: true } });
     await tx.readingPath.deleteMany({ where: { isSample: true } });
+    await tx.creativeNote.deleteMany({ where: { isSample: true } });
+    await tx.novelProject.deleteMany({ where: { isSample: true } });
     await tx.customShelf.deleteMany({ where: { isSample: true } });
     await tx.book.deleteMany({ where: { isSample: true } });
     await tx.author.deleteMany({ where: { isSample: true, books: { none: {} } } });

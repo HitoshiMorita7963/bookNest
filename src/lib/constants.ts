@@ -10,7 +10,7 @@ export type BookStatus = (typeof BOOK_STATUSES)[number];
 
 export const STATUS_LABEL: Record<BookStatus, string> = {
   WANT_TO_READ: "読みたい",
-  OWNED: "所有",
+  OWNED: "積読",
   READING: "読書中",
   COMPLETED: "読了",
   PAUSED: "中断",
@@ -81,3 +81,67 @@ export const PAGE_SIZE = 48;
 
 export const MAX_UPLOAD_BYTES = (Number(process.env.MAX_UPLOAD_MB) || 10) * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
+
+/* ---------------- 創作 ---------------- */
+export const CREATIVE_CATEGORIES = ["CHARACTER", "SETTING", "PLOT", "SCENE", "DIALOGUE", "DESCRIPTION", "THEME", "MOTIF", "TITLE", "OTHER"] as const;
+export type CreativeCategory = (typeof CREATIVE_CATEGORIES)[number];
+export const CREATIVE_CATEGORY_LABEL: Record<CreativeCategory, string> = {
+  CHARACTER: "人物",
+  SETTING: "設定",
+  PLOT: "ストーリー",
+  SCENE: "シーン",
+  DIALOGUE: "セリフ",
+  DESCRIPTION: "描写",
+  THEME: "テーマ",
+  MOTIF: "モチーフ",
+  TITLE: "タイトル案",
+  OTHER: "その他",
+};
+export const CREATIVE_CATEGORY_EMOJI: Record<CreativeCategory, string> = {
+  CHARACTER: "👤",
+  SETTING: "🌍",
+  PLOT: "📋",
+  SCENE: "🎬",
+  DIALOGUE: "💬",
+  DESCRIPTION: "🖋",
+  THEME: "🎯",
+  MOTIF: "🔁",
+  TITLE: "🏷",
+  OTHER: "💡",
+};
+
+export const NOTE_STATUSES = ["IDEA", "IN_USE", "USED", "ARCHIVED"] as const;
+export type NoteStatus = (typeof NOTE_STATUSES)[number];
+export const NOTE_STATUS_LABEL: Record<NoteStatus, string> = { IDEA: "アイデア", IN_USE: "使用中", USED: "使用済み", ARCHIVED: "アーカイブ" };
+
+export const PROJECT_STATUSES = ["IDEA", "PLANNING", "WRITING", "COMPLETED", "ON_HOLD"] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = { IDEA: "アイデア", PLANNING: "企画中", WRITING: "執筆中", COMPLETED: "完結", ON_HOLD: "保留" };
+
+/** プロット・シーン共通の進行状態 */
+export const SCENE_STATUSES = ["IDEA", "OUTLINE", "DRAFT", "REVISED", "COMPLETED"] as const;
+export type SceneStatus = (typeof SCENE_STATUSES)[number];
+export const SCENE_STATUS_LABEL: Record<SceneStatus, string> = { IDEA: "アイデア", OUTLINE: "構想", DRAFT: "初稿", REVISED: "改稿", COMPLETED: "完成" };
+
+export const WORLD_CATEGORIES = ["世界", "歴史", "地理", "文化", "社会", "宗教", "技術", "魔法", "政治", "経済", "その他"] as const;
+
+export const CHARACTER_ROLE_SUGGESTIONS = ["主人公", "ヒロイン", "ライバル", "親友", "敵役", "師匠", "家族", "脇役"];
+
+/** 参考資料の用途の候補（自由入力も可） */
+export const REFERENCE_PURPOSES = ["人物造形", "会話", "情景描写", "ストーリー構成", "世界観", "テーマ", "雰囲気", "考証・資料", "タイトル"];
+
+/** 創作に紐付ける先の種類 */
+export const LINK_TARGET_KINDS = ["project", "character", "world", "plot", "chapter", "scene", "note"] as const;
+export type LinkTargetKind = (typeof LINK_TARGET_KINDS)[number];
+export const LINK_TARGET_LABEL: Record<LinkTargetKind, string> = {
+  project: "作品全体",
+  character: "人物",
+  world: "世界観",
+  plot: "プロット",
+  chapter: "章",
+  scene: "シーン",
+  note: "創作メモ",
+};
+export const LINK_SOURCE_KINDS = ["book", "quote", "knowledge", "note"] as const;
+export type LinkSourceKind = (typeof LINK_SOURCE_KINDS)[number];
+export const LINK_SOURCE_LABEL: Record<LinkSourceKind, string> = { book: "本", quote: "フレーズ", knowledge: "知識", note: "創作メモ" };
