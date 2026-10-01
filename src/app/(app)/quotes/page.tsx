@@ -7,7 +7,7 @@ import { SearchBox } from "@/components/search/search-box";
 import { QuoteCard } from "@/components/quotes/quote-card";
 import { EmptyState } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { ChipLink } from "@/components/ui/chip-link";
 
 export const metadata = { title: "フレーズ" };
 
@@ -62,17 +62,17 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
         <div className="space-y-4">
           <SearchBox initial={sp.q ?? ""} placeholder="フレーズ・本・著者・タグ・メモ" autoFocus={false} />
           <nav className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0" aria-label="タグで絞り込み">
-            <Link href={href(sp, { tag: undefined, fav: undefined })} className={chip(!sp.tag && sp.fav !== "1")}>
+            <ChipLink href={href(sp, { tag: undefined, fav: undefined })} active={!sp.tag && sp.fav !== "1"}>
               すべて
-            </Link>
-            <Link href={href(sp, { fav: sp.fav === "1" ? undefined : "1", tag: undefined })} className={chip(sp.fav === "1")}>
+            </ChipLink>
+            <ChipLink href={href(sp, { fav: sp.fav === "1" ? undefined : "1", tag: undefined })} active={sp.fav === "1"}>
               <Heart className="size-3.5" /> お気に入り
-            </Link>
+            </ChipLink>
             {tags.map((t) => (
-              <Link key={t.name} href={href(sp, { tag: sp.tag === t.name ? undefined : t.name, fav: undefined })} className={chip(sp.tag === t.name)}>
+              <ChipLink key={t.name} href={href(sp, { tag: sp.tag === t.name ? undefined : t.name, fav: undefined })} active={sp.tag === t.name}>
                 #{t.name}
                 <span className="text-xs opacity-70">{t._count.quotes}</span>
-              </Link>
+              </ChipLink>
             ))}
           </nav>
           {filterBook ? (
@@ -110,9 +110,3 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
   );
 }
 
-function chip(active: boolean) {
-  return cn(
-    "flex h-9 shrink-0 items-center gap-1 rounded-full border px-3.5 text-sm",
-    active ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
-  );
-}

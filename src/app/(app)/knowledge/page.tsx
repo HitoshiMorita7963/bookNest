@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { SearchBox } from "@/components/search/search-box";
 import { EmptyState, TagChip } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
-import { cn, truncate } from "@/lib/utils";
+import { truncate } from "@/lib/utils";
+import { ChipLink } from "@/components/ui/chip-link";
 
 export const metadata = { title: "知識" };
 
@@ -64,14 +65,14 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
           <SearchBox initial={sp.q ?? ""} placeholder="知識・タグ・本で検索" autoFocus={false} />
           {facets.categories.length ? (
             <nav className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0" aria-label="カテゴリ">
-              <Link href={href(sp, { category: undefined })} className={chip(!sp.category)}>
+              <ChipLink href={href(sp, { category: undefined })} active={!sp.category}>
                 すべて
-              </Link>
+              </ChipLink>
               {facets.categories.map((c) => (
-                <Link key={c.name} href={href(sp, { category: sp.category === c.name ? undefined : c.name })} className={chip(sp.category === c.name)}>
+                <ChipLink key={c.name} href={href(sp, { category: sp.category === c.name ? undefined : c.name })} active={sp.category === c.name}>
                   {c.name}
                   <span className="text-xs opacity-70">{c.count}</span>
-                </Link>
+                </ChipLink>
               ))}
             </nav>
           ) : null}
@@ -119,6 +120,3 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
   );
 }
 
-function chip(active: boolean) {
-  return cn("flex h-9 shrink-0 items-center gap-1 rounded-full border px-3.5 text-sm", active ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent");
-}
