@@ -92,3 +92,40 @@ test("フォームのバリデーション（タイトル必須）", async ({ pa
   await page.getByRole("button", { name: "本棚に追加" }).click();
   await expect(page.getByText("タイトルを入力してください")).toBeVisible();
 });
+
+test("フレーズを一覧から削除できる", async ({ page }) => {
+  // 削除用のフレーズを作成
+  await page.goto("/quotes/new");
+  await page.getByRole("button", { name: "テキストを入力" }).click();
+  await page.getByLabel("フレーズ").fill("削除テスト用のフレーズ");
+  await page.getByRole("button", { name: "保存する" }).click();
+  await expect(page).toHaveURL(/\/quotes\/c[a-z0-9]+$/);
+
+  await page.goto("/quotes?q=削除テスト用");
+  await expect(page.getByText("削除テスト用のフレーズ")).toBeVisible();
+  await page.getByRole("button", { name: "フレーズの操作" }).first().click();
+  await page.getByRole("menuitem", { name: "削除" }).click();
+  await page.getByRole("button", { name: "削除する" }).click();
+  await expect(page.getByText("フレーズを削除しました")).toBeVisible();
+  await expect(page.locator("main").getByText("削除テスト用のフレーズ")).toHaveCount(0);
+});
+
+test("フレーズ詳細画面の下部から削除できる", async ({ page }) => {
+  await page.goto("/quotes/new");
+  await page.getByRole("button", { name: "テキストを入力" }).click();
+  await page.getByLabel("フレーズ").fill("詳細から削除するフレーズ");
+  await page.getByRole("button", { name: "保存する" }).click();
+  await expect(page).toHaveURL(/\/quotes\/c[a-z0-9]+$/);
+  await page.getByRole("button", { name: "このフレーズを削除" }).click();
+  await page.getByRole("button", { name: "削除する" }).click();
+  await expect(page).toHaveURL(/\/quotes$/);
+  await expect(page.getByText("詳細から削除するフレーズ")).toHaveCount(0);
+});
+
+test("本棚はリスト表示が標準で、グリッド表示に切り替えられる", async ({ page }) => {
+  await page.goto("/books");
+  await expect(page.getByRole("button", { name: "グリッド表示に切り替え" })).toBeVisible();
+  await page.getByRole("button", { name: "グリッド表示に切り替え" }).click();
+  await expect(page).toHaveURL(/view=grid/);
+  await expect(page.getByRole("button", { name: "リスト表示に切り替え" })).toBeVisible();
+});

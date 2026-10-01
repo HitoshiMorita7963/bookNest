@@ -26,7 +26,7 @@ export default async function ShelfPage({ params }: { params: Promise<{ id: stri
       {shelf.books.length === 0 ? (
         <EmptyState icon="📚" title="まだ本がありません" description="右上の「本を追加」から、この本棚に本を入れましょう。" />
       ) : (
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 min-[400px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <ul className="grid grid-cols-3 gap-x-3 gap-y-5 min-[500px]:grid-cols-4 md:grid-cols-4 lg:grid-cols-6">
           {shelf.books.map(({ book: b }) => (
             <li key={b.id} className="relative">
               <RemoveFromShelfButton shelfId={shelf.id} bookId={b.id} title={b.title} />
