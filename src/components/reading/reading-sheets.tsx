@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Loader2, Star, Minus, Plus } from "lucide-react";
+import { Loader2, Star, Minus, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { Sheet, SheetContent } from "@/components/ui/overlays";
@@ -12,6 +12,8 @@ import { cn, progressPercent } from "@/lib/utils";
 import { BOOK_STATUSES, STATUS_EMOJI, STATUS_LABEL } from "@/lib/constants";
 import { finishReadingAction, updateProgressAction, updateRecordAction } from "@/server/actions/reading";
 import { changeStatusAction } from "@/server/actions/books";
+import { organizeNotesAction } from "@/server/actions/ai";
+import type { OrganizedNotes } from "@/server/ai/features";
 import { Progress } from "@/components/ui/primitives";
 
 export function RatingInput({ value, onChange, label = "評価" }: { value: number | null; onChange: (v: number | null) => void; label?: string }) {
@@ -285,6 +287,14 @@ function RecordBody({
           <Field label="感想" htmlFor="r-review">
             <Textarea id="r-review" rows={5} value={v.review} onChange={set("review")} placeholder="読んでどう感じましたか？" />
           </Field>
+          <AiOrganize
+            bookTitle={bookTitle}
+            text={[v.review, v.learned, v.memorable, v.questions, v.summary].filter(Boolean).join("\n\n")}
+            onApply={(o) => {
+              setV((p) => ({ ...p, summary: o.summary || p.summary, learned: o.learned || p.learned, memorable: o.memorable || p.memorable, questions: o.questions || p.questions }));
+              setShowMore(true);
+            }}
+          />
           <Field label="学んだこと" htmlFor="r-learned">
             <Textarea id="r-learned" rows={4} value={v.learned} onChange={set("learned")} placeholder="この本から得た知識・気づき" />
           </Field>
@@ -377,5 +387,75 @@ export function StatusSheet({
         </ul>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/* ---------- AI による読書メモの整理（提案を確認してから反映） ---------- */
+function AiOrganize({ bookTitle, text, onApply }: { bookTitle: string; text: string; onApply: (o: OrganizedNotes) => void }) {
+  const [proposal, setProposal] = useState<OrganizedNotes | null>(null);
+  const [pending, start] = useTransition();
+  if (proposal) {
+    const rows: [string, string][] = [
+      ["要約", proposal.summary],
+      ["学んだこと", proposal.learned],
+      ["印象に残った点", proposal.memorable],
+      ["疑問点", proposal.questions],
+    ];
+    return (
+      <div className="space-y-3 rounded-xl border border-dashed border-primary/50 bg-primary/5 p-3">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-primary">
+          <Sparkles className="size-4" /> AI提案（あなたの文章を整理したものです）
+        </p>
+        <dl className="space-y-2 text-sm">
+          {rows
+            .filter(([, v]) => v)
+            .map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-xs text-muted-foreground">{k}</dt>
+                <dd className="prose-note">{v}</dd>
+              </div>
+            ))}
+          {proposal.keywords.length ? (
+            <div>
+              <dt className="text-xs text-muted-foreground">キーワード</dt>
+              <dd>{proposal.keywords.join("、")}</dd>
+            </div>
+          ) : null}
+        </dl>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" onClick={() => setProposal(null)}>
+            破棄
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              onApply(proposal);
+              setProposal(null);
+              toast.success("各項目に反映しました。内容を確認して保存してください");
+            }}
+          >
+            反映する
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={pending || text.trim().length < 10}
+      onClick={() =>
+        start(async () => {
+          const res = await organizeNotesAction(bookTitle, text);
+          if (!res.ok) return void toast.error(res.error);
+          setProposal(res.data);
+        })
+      }
+    >
+      {pending ? <Loader2 className="animate-spin" /> : <Sparkles />}
+      AIで要約・学び・疑問に整理
+    </Button>
   );
 }

@@ -6,7 +6,7 @@ export function aiConfig() {
   const provider = (process.env.AI_PROVIDER?.trim() || (key ? "anthropic" : "none")).toLowerCase();
   return {
     provider: provider === "anthropic" && key ? ("anthropic" as const) : ("none" as const),
-    model: process.env.AI_MODEL?.trim() || "claude-sonnet-5",
+    model: process.env.AI_MODEL?.trim() || "claude-opus-5",
     configured: provider === "anthropic" && !!key,
   };
 }

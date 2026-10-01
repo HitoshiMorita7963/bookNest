@@ -9,6 +9,7 @@ import { BookCover } from "@/components/books/book-cover";
 import { TagChip, SectionTitle } from "@/components/books/bits";
 import { QuoteMenu } from "@/components/quotes/quote-menu";
 import { Button } from "@/components/ui/button";
+import { AiQuoteAnalysis } from "@/components/ai/ai-quote-analysis";
 
 export const metadata = { title: "フレーズ" };
 
@@ -80,6 +81,8 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
           )}
         </section>
 
+
+        <AiQuoteAnalysis quoteId={q.id} quoteText={q.text} book={q.book ? { id: q.book.id, title: q.book.title } : null} />
 
         {q.originalImage ? (
           <details className="rounded-xl border bg-card">

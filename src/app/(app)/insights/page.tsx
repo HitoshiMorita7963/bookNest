@@ -4,6 +4,7 @@ import { PeriodTabs, StatTile } from "@/components/stats/period-tabs";
 import { BarList } from "@/components/stats/charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/primitives";
 import { TagChip } from "@/components/books/bits";
+import { AiTrendAnalysis } from "@/components/ai/ai-trend-analysis";
 import { INSIGHT_PERIOD_LABEL, analyzeTrends, type InsightPeriod } from "@/server/services/insights";
 import { formatNumber } from "@/lib/utils";
 
@@ -37,6 +38,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
           </CardContent>
         </Card>
 
+
+        <AiTrendAnalysis period={period} />
 
         <div className="grid grid-cols-3 gap-3">
           <StatTile label="平均評価" value={a.avgRating ? a.avgRating.toFixed(1) : "—"} unit={a.avgRating ? "★" : undefined} />
