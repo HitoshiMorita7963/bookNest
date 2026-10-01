@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDownUp, LayoutGrid, List, SlidersHorizontal, Search, X, Check } from "lucide-react";
+import { ArrowDownUp, LayoutGrid, List, SlidersHorizontal, Search, X, Check, Loader2 } from "lucide-react";
+import { signalNavigation } from "@/components/layout/navigation-progress";
 import { Button } from "@/components/ui/button";
 import { Input, Label, NativeSelect } from "@/components/ui/form-controls";
 import { Sheet, SheetContent } from "@/components/ui/overlays";
@@ -21,8 +22,10 @@ function useParamsUpdater() {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
+  const [pending, start] = useTransition();
   return {
     sp,
+    pending,
     update(patch: Record<string, string | null | undefined>) {
       const next = new URLSearchParams(sp.toString());
       for (const [k, v] of Object.entries(patch)) {
@@ -31,13 +34,14 @@ function useParamsUpdater() {
       }
       next.delete("page");
       const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      signalNavigation();
+      start(() => router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
     },
   };
 }
 
 export function ShelfControls({ facets, counts, total }: { facets: Facets; counts: Record<string, number>; total: number }) {
-  const { sp, update } = useParamsUpdater();
+  const { sp, update, pending } = useParamsUpdater();
   const [q, setQ] = useState(sp.get("q") ?? "");
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -103,8 +107,9 @@ export function ShelfControls({ facets, counts, total }: { facets: Facets; count
         ))}
       </div>
 
-      <p className="text-sm text-muted-foreground" aria-live="polite">
+      <p className="flex items-center gap-1.5 text-sm text-muted-foreground" aria-live="polite">
         {total}冊 ・ {SORT_OPTIONS[sort] ?? "追加日"}順
+        {pending ? <Loader2 className="size-4 animate-spin text-primary" aria-label="読み込み中" /> : null}
       </p>
 
       <Sheet open={sortOpen} onOpenChange={setSortOpen}>

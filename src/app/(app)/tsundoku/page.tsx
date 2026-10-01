@@ -7,6 +7,7 @@ import { EmptyState, authorNames } from "@/components/books/bits";
 import { RandomPick } from "@/components/tsundoku/random-pick";
 import { bookListInclude } from "@/server/services/books";
 import { cn, formatNumber } from "@/lib/utils";
+import { ChipLink } from "@/components/ui/chip-link";
 
 export const metadata = { title: "積読" };
 
@@ -44,13 +45,9 @@ export default async function TsundokuPage({ searchParams }: { searchParams: Pro
           <RandomPick items={withDays.map((b) => ({ id: b.id, title: b.title, coverImage: b.coverImage, author: authorNames(b, 1), days: b.days }))} />
           <nav className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0" aria-label="積読期間">
             {AGES.map((a) => (
-              <Link
-                key={a.key}
-                href={a.key ? `/tsundoku?age=${a.key}` : "/tsundoku"}
-                className={cn("flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm", age === a.key ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent")}
-              >
+              <ChipLink key={a.key} href={a.key ? `/tsundoku?age=${a.key}` : "/tsundoku"} active={age === a.key}>
                 {a.label}
-              </Link>
+              </ChipLink>
             ))}
           </nav>
           {books.length === 0 ? (
