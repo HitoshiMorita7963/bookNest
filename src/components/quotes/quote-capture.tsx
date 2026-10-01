@@ -35,6 +35,8 @@ export function QuoteCapture({ initialBook }: { initialBook: QuoteFormValues["bo
   const [text, setText] = useState("");
   const [confidence, setConfidence] = useState<number | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
+  const [hasImage, setHasImage] = useState(false);
+  const [ocrRun, setOcrRun] = useState(0);
   const croppedRef = useRef<HTMLCanvasElement | null>(null);
 
   const renderPreview = useCallback(async (rot: number) => {
@@ -63,6 +65,7 @@ export function QuoteCapture({ initialBook }: { initialBook: QuoteFormValues["bo
     try {
       const img = await loadImage(url);
       sourceImg.current = img;
+      setHasImage(true);
       setRotation(0);
       setCrop({ unit: "%", x: 5, y: 5, width: 90, height: 90 });
       setStep("crop");
@@ -100,6 +103,7 @@ export function QuoteCapture({ initialBook }: { initialBook: QuoteFormValues["bo
       }
       setText(result.text);
       setConfidence(result.confidence);
+      setOcrRun((n) => n + 1);
       if (!result.text.trim()) toast.warning("文字が見つかりませんでした。範囲や向きを調整してください。");
       setDirection(usedDir);
       setStep("edit");
@@ -242,16 +246,17 @@ export function QuoteCapture({ initialBook }: { initialBook: QuoteFormValues["bo
 
   return (
     <div className="space-y-4">
-      {sourceImg.current ? (
+      {hasImage ? (
         <Button variant="ghost" size="sm" onClick={() => setStep("crop")} className="-ml-2">
           <ArrowLeft /> 範囲を選び直す
         </Button>
       ) : null}
       <QuoteForm
         initial={initial}
-        beforeSave={sourceImg.current ? uploadCropped : undefined}
+        textVersion={ocrRun}
+        beforeSave={hasImage ? uploadCropped : undefined}
         textSlot={
-          sourceImg.current ? (
+          hasImage ? (
             <div className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/60 p-2.5 text-sm">
               <span className="flex-1 text-muted-foreground">
                 OCR結果を確認・修正してください

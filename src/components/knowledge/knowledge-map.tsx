@@ -103,7 +103,6 @@ export function KnowledgeMap({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
 
   if (!nodes.length) return null;
   const vb = `${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}`;
-  const unit = bounds.w / (svgRef.current?.clientWidth || 600);
 
   return (
     <div className="space-y-3">
@@ -121,6 +120,7 @@ export function KnowledgeMap({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
           onPointerMove={(e) => {
             const d = drag.current;
             if (!d) return;
+            const unit = bounds.w / (svgRef.current?.clientWidth || 600);
             const dx = e.clientX - d.x;
             const dy = e.clientY - d.y;
             if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;

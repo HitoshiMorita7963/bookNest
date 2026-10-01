@@ -2,14 +2,14 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Field, Input, NativeSelect, Textarea } from "@/components/ui/form-controls";
+import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { BookCover } from "./book-cover";
 import { BOOK_STATUSES, DEFAULT_GENRES, STATUS_LABEL } from "@/lib/constants";
 import { parseIsbn } from "@/lib/isbn";
@@ -80,7 +80,7 @@ export function BookForm({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors },
   } = useForm<BookFormValues>({
@@ -88,8 +88,8 @@ export function BookForm({
     defaultValues: { ...emptyBookForm, ...defaultValues },
   });
 
-  const cover = watch("coverImage");
-  const title = watch("title");
+  const cover = useWatch({ control, name: "coverImage" });
+  const title = useWatch({ control, name: "title" });
 
   async function onPickCover(file: File | undefined) {
     if (!file) return;

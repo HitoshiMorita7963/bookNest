@@ -39,8 +39,8 @@ export function BookPickerSheet({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoading(true);
     const t = setTimeout(async () => {
+      setLoading(true);
       try {
         const rows = await pickBooksAction(q);
         if (!cancelled) setItems(rows as PickedBook[]);

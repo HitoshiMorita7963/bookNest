@@ -37,7 +37,6 @@ export function KnowledgeForm({
   const [bookOpen, setBookOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [pending, start] = useTransition();
-  useEffect(() => setV(initial), [initial]);
 
   function save() {
     if (!v.title.trim()) return void toast.error("タイトルを入力してください");

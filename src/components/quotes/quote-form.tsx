@@ -27,7 +27,10 @@ export function QuoteForm({
   textSlot,
   beforeSave,
   onSaved,
+  textVersion = 0,
 }: {
+  /** OCR をやり直すたびに増える値。変わったら本文を initial.text で置き換える */
+  textVersion?: number;
   quoteId?: string;
   initial: QuoteFormValues;
   /** OCR 画面では本文欄の上に「再OCR」などを差し込む */
@@ -43,7 +46,12 @@ export function QuoteForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  useEffect(() => setV((p) => ({ ...p, text: initial.text })), [initial.text]);
+  const [seenVersion, setSeenVersion] = useState(textVersion);
+  if (seenVersion !== textVersion) {
+    // 再OCRの結果を本文に反映（他の入力内容は保持）
+    setSeenVersion(textVersion);
+    setV((p) => ({ ...p, text: initial.text }));
+  }
   useEffect(() => {
     listTagNamesAction().then(setTagSuggest).catch(() => undefined);
   }, []);

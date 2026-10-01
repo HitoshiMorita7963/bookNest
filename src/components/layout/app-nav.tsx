@@ -98,7 +98,7 @@ function BottomNavInner() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="mx-auto grid h-16 max-w-xl grid-cols-5">
-        {items.map((it, i) =>
+        {items.map((it) =>
           it === null ? (
             <li key="add" className="flex items-center justify-center">
               <Sheet open={open} onOpenChange={setOpen}>

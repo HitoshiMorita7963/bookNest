@@ -173,16 +173,21 @@ function FilterSheet({
   sp: URLSearchParams;
   onApply: (patch: Record<string, string | null>) => void;
 }) {
-  const [v, setV] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (open) setV(Object.fromEntries(FILTER_KEYS.map((k) => [k, sp.get(k) ?? ""])));
-  }, [open, sp]);
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent title="絞り込み">
+        <FilterBody facets={facets} sp={sp} onApply={onApply} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function FilterBody({ facets, sp, onApply }: { facets: Facets; sp: URLSearchParams; onApply: (patch: Record<string, string | null>) => void }) {
+  const [v, setV] = useState<Record<string, string>>(() => Object.fromEntries(FILTER_KEYS.map((k) => [k, sp.get(k) ?? ""])));
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV((p) => ({ ...p, [k]: e.target.value }));
   const thisYear = new Date().getFullYear();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent title="絞り込み">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="f-genre">ジャンル</Label>
@@ -254,7 +259,5 @@ function FilterSheet({
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
   );
 }

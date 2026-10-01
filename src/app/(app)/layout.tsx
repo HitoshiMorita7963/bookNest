@@ -1,5 +1,8 @@
 import { Sidebar, BottomNav } from "@/components/layout/app-nav";
 
+// すべての画面は個人の最新データを表示するため、常にリクエスト時にレンダリングする
+export const dynamic = "force-dynamic";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -35,27 +35,25 @@ export function RatingInput({ value, onChange, label = "評価" }: { value: numb
 }
 
 /* ---------- 進捗更新 ---------- */
-export function ProgressSheet({
-  open,
-  onOpenChange,
-  book,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  book: { id: string; title: string; currentPage: number; pageCount: number | null };
-}) {
+type ProgressBook = { id: string; title: string; currentPage: number; pageCount: number | null };
+
+// シートの中身は開くたびにマウントされるため、状態は毎回初期値から始まる
+export function ProgressSheet({ open, onOpenChange, book }: { open: boolean; onOpenChange: (o: boolean) => void; book: ProgressBook }) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+      <SheetContent title="進捗を更新" description={`『${book.title}』`}>
+        <ProgressBody book={book} onDone={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ProgressBody({ book, onDone }: { book: ProgressBook; onDone: () => void }) {
   const router = useRouter();
   const [page, setPage] = useState(String(book.currentPage));
   const [minutes, setMinutes] = useState("");
   const [note, setNote] = useState("");
   const [pending, start] = useTransition();
-  useEffect(() => {
-    if (open) {
-      setPage(String(book.currentPage));
-      setMinutes("");
-      setNote("");
-    }
-  }, [open, book.currentPage]);
   const n = Number(page.normalize("NFKC")) || 0;
   const over = !!book.pageCount && n > book.pageCount;
 
@@ -70,14 +68,12 @@ export function ProgressSheet({
       const res = await updateProgressAction(book.id, { currentPage: page.normalize("NFKC"), minutes: minutes || null, note });
       if (!res.ok) return void toast.error(res.error);
       toast.success(n - book.currentPage > 0 ? `${n - book.currentPage}ページ進みました` : "進捗を記録しました");
-      onOpenChange(false);
+      onDone();
       router.refresh();
     });
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-      <SheetContent title="進捗を更新" description={`『${book.title}』`}>
         <div className="space-y-5">
           <div className="space-y-3">
             <label htmlFor="cur-page" className="text-sm font-medium">
@@ -133,32 +129,35 @@ export function ProgressSheet({
             記録する
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
   );
 }
 
 /* ---------- 読書メモ ---------- */
 export function NoteSheet({ open, onOpenChange, book }: { open: boolean; onOpenChange: (o: boolean) => void; book: { id: string; title: string } }) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+      <SheetContent title="読書メモ" description={`『${book.title}』`}>
+        <NoteBody bookId={book.id} onDone={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function NoteBody({ bookId, onDone }: { bookId: string; onDone: () => void }) {
   const router = useRouter();
   const [note, setNote] = useState("");
   const [pending, start] = useTransition();
-  useEffect(() => {
-    if (open) setNote("");
-  }, [open]);
   function submit() {
     if (!note.trim()) return;
     start(async () => {
-      const res = await updateProgressAction(book.id, { note });
+      const res = await updateProgressAction(bookId, { note });
       if (!res.ok) return void toast.error(res.error);
       toast.success("メモを保存しました");
-      onOpenChange(false);
+      onDone();
       router.refresh();
     });
   }
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-      <SheetContent title="読書メモ" description={`『${book.title}』`}>
         <div className="space-y-4">
           <label htmlFor="memo" className="sr-only">
             メモ
@@ -169,8 +168,6 @@ export function NoteSheet({ open, onOpenChange, book }: { open: boolean; onOpenC
             保存する
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
   );
 }
 
@@ -192,6 +189,19 @@ function toDateInput(d?: Date | string | null) {
   return Number.isNaN(date.getTime()) ? "" : format(date, "yyyy-MM-dd");
 }
 
+interface RecordData {
+  id: string;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  rating: number | null;
+  review: string | null;
+  summary: string | null;
+  learned: string | null;
+  memorable: string | null;
+  questions: string | null;
+  status: string;
+}
+
 export function RecordSheet({
   open,
   onOpenChange,
@@ -205,42 +215,43 @@ export function RecordSheet({
   mode: "finish" | "edit";
   bookId: string;
   bookTitle: string;
-  record?: {
-    id: string;
-    startedAt: Date | null;
-    finishedAt: Date | null;
-    rating: number | null;
-    review: string | null;
-    summary: string | null;
-    learned: string | null;
-    memorable: string | null;
-    questions: string | null;
-    status: string;
-  };
+  record?: RecordData;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+      <SheetContent title={mode === "finish" ? "読了する" : "読書記録を編集"} description={`『${bookTitle}』`}>
+        <RecordBody mode={mode} bookId={bookId} bookTitle={bookTitle} record={record} onDone={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function RecordBody({
+  mode,
+  bookId,
+  bookTitle,
+  record,
+  onDone,
+}: {
+  mode: "finish" | "edit";
+  bookId: string;
+  bookTitle: string;
+  record?: RecordData;
+  onDone: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [showMore, setShowMore] = useState(false);
-  const [v, setV] = useState<RecordValues>(() => init());
-  function init(): RecordValues {
-    return {
-      startedAt: toDateInput(record?.startedAt),
-      finishedAt: toDateInput(record?.finishedAt ?? (mode === "finish" ? new Date() : null)),
-      rating: record?.rating ?? null,
-      review: record?.review ?? "",
-      summary: record?.summary ?? "",
-      learned: record?.learned ?? "",
-      memorable: record?.memorable ?? "",
-      questions: record?.questions ?? "",
-    };
-  }
-  useEffect(() => {
-    if (open) {
-      setV(init());
-      setShowMore(mode === "edit" && !!(record?.summary || record?.memorable || record?.questions));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const [showMore, setShowMore] = useState(mode === "edit" && !!(record?.summary || record?.memorable || record?.questions));
+  const [v, setV] = useState<RecordValues>(() => ({
+    startedAt: toDateInput(record?.startedAt),
+    finishedAt: toDateInput(record?.finishedAt ?? (mode === "finish" ? new Date() : null)),
+    rating: record?.rating ?? null,
+    review: record?.review ?? "",
+    summary: record?.summary ?? "",
+    learned: record?.learned ?? "",
+    memorable: record?.memorable ?? "",
+    questions: record?.questions ?? "",
+  }));
   const set = (k: keyof RecordValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV((p) => ({ ...p, [k]: e.target.value }));
 
   function submit(skip = false) {
@@ -252,14 +263,12 @@ export function RecordSheet({
           : await updateRecordAction(record!.id, { ...payload, status: record!.status as "COMPLETED" });
       if (!res.ok) return void toast.error(res.error);
       toast.success(mode === "finish" ? `🎉 『${bookTitle}』を読了しました` : "読書記録を保存しました");
-      onOpenChange(false);
+      onDone();
       router.refresh();
     });
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-      <SheetContent title={mode === "finish" ? "読了する" : "読書記録を編集"} description={`『${bookTitle}』`}>
         <div className="space-y-5">
           <div className="space-y-1">
             <p className="text-sm font-medium">評価</p>
@@ -308,8 +317,6 @@ export function RecordSheet({
             ) : null}
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
   );
 }
 

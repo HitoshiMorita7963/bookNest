@@ -105,6 +105,16 @@ export function BookMenu({ bookId, title, shelfIds }: { bookId: string; title: s
 }
 
 export function ShelfSelectSheet({ open, onOpenChange, bookId, initial }: { open: boolean; onOpenChange: (o: boolean) => void; bookId: string; initial: string[] }) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+      <SheetContent title="マイ本棚に追加" description="複数の本棚に入れられます">
+        <ShelfSelectBody bookId={bookId} initial={initial} onDone={() => onOpenChange(false)} />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function ShelfSelectBody({ bookId, initial, onDone }: { bookId: string; initial: string[]; onDone: () => void }) {
   const router = useRouter();
   const [shelves, setShelves] = useState<{ id: string; name: string }[] | null>(null);
   const [selected, setSelected] = useState<string[]>(initial);
@@ -112,11 +122,8 @@ export function ShelfSelectSheet({ open, onOpenChange, bookId, initial }: { open
   const [pending, start] = useTransition();
 
   useEffect(() => {
-    if (!open) return;
-    setSelected(initial);
     listShelvesAction().then(setShelves);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, []);
 
   function addShelf() {
     const name = newName.trim();
@@ -135,14 +142,12 @@ export function ShelfSelectSheet({ open, onOpenChange, bookId, initial }: { open
       const res = await setBookShelvesAction(bookId, selected);
       if (!res.ok) return void toast.error(res.error);
       toast.success("マイ本棚を更新しました");
-      onOpenChange(false);
+      onDone();
       router.refresh();
     });
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
-      <SheetContent title="マイ本棚に追加" description="複数の本棚に入れられます">
         <div className="space-y-4">
           {shelves === null ? (
             <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" />
@@ -174,8 +179,6 @@ export function ShelfSelectSheet({ open, onOpenChange, bookId, initial }: { open
             保存する
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
   );
 }
 
