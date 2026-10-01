@@ -80,6 +80,7 @@ export async function applyQuoteSuggestionAction(quoteId: string, patch: { addTa
       if (k) await prisma.quoteKnowledge.upsert({ where: { quoteId_knowledgeId: { quoteId, knowledgeId } }, create: { quoteId, knowledgeId }, update: {} });
     }
     revalidatePath("/", "layout");
+    syncSheetLater("quote", quoteId);
     return { ok: true, data: undefined };
   } catch (e) {
     return toUserError(e);
@@ -88,6 +89,7 @@ export async function applyQuoteSuggestionAction(quoteId: string, patch: { addTa
 
 /* ---------------- AI 編集者 ---------------- */
 import { applyProposal, askEditor, type EditorContext, type Proposal } from "@/server/ai/editor";
+import { syncSheetLater } from "@/server/sheets-sync";
 
 export async function askEditorAction(projectId: string, conversationId: string | null, question: string, ctx: EditorContext) {
   try {
@@ -102,6 +104,7 @@ export async function askEditorAction(projectId: string, conversationId: string 
 export async function applyProposalAction(projectId: string, proposal: Proposal): Promise<ActionResult<{ kind: string; id: string }>> {
   try {
     const r = await applyProposal(prisma, projectId, proposal);
+    if (r.kind === "note") syncSheetLater("note", r.id);
     revalidatePath("/", "layout");
     return { ok: true, data: r };
   } catch (e) {

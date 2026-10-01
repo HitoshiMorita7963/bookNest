@@ -18,6 +18,9 @@ import {
   runImportAction,
   updateProfileAction,
   updateSettingsAction,
+  fillCoversAction,
+  syncSheetsNowAction,
+  testSheetsAction,
 } from "@/server/actions/settings";
 import type { AppSettings } from "@/server/services/settings";
 import { cn } from "@/lib/utils";
@@ -313,7 +316,7 @@ export function DataCard({ hasSample }: { hasSample: boolean }) {
   );
 }
 
-export function AiCard({ settings, configured, model }: { settings: AppSettings; configured: boolean; model: string }) {
+export function AiCard({ settings, configured, model, providerLabel }: { settings: AppSettings; configured: boolean; model: string; providerLabel: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
@@ -325,7 +328,7 @@ export function AiCard({ settings, configured, model }: { settings: AppSettings;
         <div className="rounded-xl bg-muted/60 p-3 text-sm">
           {configured ? (
             <p>
-              AIプロバイダ：<span className="font-medium">Anthropic（{model}）</span> が設定されています。
+              AIプロバイダ：<span className="font-medium">{providerLabel}</span>・モデル <code className="rounded bg-background px-1">{model}</code> が設定されています。
             </p>
           ) : (
             <p>
@@ -396,6 +399,109 @@ export function OcrCard({ serverAvailable }: { serverAvailable: boolean }) {
         <p className="text-xs text-muted-foreground">
           端末内処理は初回のみ日本語の認識データ（約10MB）をダウンロードし、以降は端末に保存されます。縦書き・横書きの両方に対応しています。
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function SheetsCard({ configured }: { configured: boolean }) {
+  const [pending, start] = useTransition();
+  const [busy, setBusy] = useState<"test" | "sync" | null>(null);
+  const run = (kind: "test" | "sync") =>
+    start(async () => {
+      setBusy(kind);
+      try {
+        if (kind === "test") {
+          const res = await testSheetsAction();
+          if (!res.ok) return void toast.error(res.error);
+          toast.success("スプレッドシートに接続できました");
+        } else {
+          const res = await syncSheetsNowAction();
+          if (!res.ok) return void toast.error(res.error);
+          toast.success(`書き出しました（フレーズ ${res.data.quote}件・知識 ${res.data.knowledge}件・創作メモ ${res.data.note}件）`);
+        }
+      } finally {
+        setBusy(null);
+      }
+    });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>📊 スプレッドシート連携</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="rounded-xl bg-muted/60 p-3 text-sm">
+          {configured ? (
+            <p>
+              <span className="font-medium">自動反映：オン</span>
+              。フレーズ・知識・創作メモを保存・削除すると、Googleスプレッドシートの「フレーズ」「知識」「創作メモ」シートに自動で反映されます。
+            </p>
+          ) : (
+            <p>
+              未設定です。<code className="rounded bg-background px-1">SHEETS_WEBHOOK_URL</code> と <code className="rounded bg-background px-1">SHEETS_WEBHOOK_SECRET</code> を設定すると、フレーズ・知識・創作メモが自動でスプレッドシートに反映されます（手順は docs/sheets-sync.md）。
+            </p>
+          )}
+        </div>
+        {configured ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={pending} onClick={() => run("test")}>
+              {busy === "test" ? <Loader2 className="size-4 animate-spin" /> : null}
+              接続テスト
+            </Button>
+            <Button disabled={pending} onClick={() => run("sync")}>
+              {busy === "sync" ? <Loader2 className="size-4 animate-spin" /> : null}
+              全件を書き出す
+            </Button>
+          </div>
+        ) : null}
+        <p className="text-xs text-muted-foreground">「全件を書き出す」は3つのシートを今のデータで書き直します。初回や、本のタイトル変更・インポートの後に使ってください。</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function CoversCard({ missing, rakuten }: { missing: number; rakuten: boolean }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [progress, setProgress] = useState<{ found: number; tried: number; total: number } | null>(null);
+  const fill = () =>
+    start(async () => {
+      const skip: string[] = [];
+      let found = 0;
+      setProgress({ found: 0, tried: 0, total: missing });
+      // サーバーの実行時間制限を避けるため、数冊ずつ繰り返す
+      for (let i = 0; i < 100; i++) {
+        const res = await fillCoversAction(skip);
+        if (!res.ok) {
+          toast.error(res.error);
+          break;
+        }
+        found += res.data.found;
+        skip.push(...res.data.notFoundIds);
+        setProgress({ found, tried: found + skip.length, total: missing });
+        if (!res.data.processed || !res.data.remaining) break;
+      }
+      toast.success(found ? `${found}冊の表紙を取得しました` : "新しく見つかった表紙はありませんでした");
+      setProgress(null);
+      router.refresh();
+    });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>🖼️ 表紙画像</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm">
+          表紙のない本（ISBNあり）：<span className="font-medium">{missing}冊</span>
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {rakuten ? "楽天ブックス" : "（楽天ブックスAPIは未設定）"}・openBD・国立国会図書館・Google Books の順に表紙を探します。
+          {rakuten ? "" : " RAKUTEN_APP_ID と RAKUTEN_ACCESS_KEY を設定すると、日本の本の表紙がほぼ取れるようになります。"}
+        </p>
+        <Button disabled={pending || missing === 0} onClick={fill}>
+          {pending ? <Loader2 className="size-4 animate-spin" /> : null}
+          {progress ? `探しています… ${progress.tried}/${progress.total}冊` : "表紙を一括取得"}
+        </Button>
       </CardContent>
     </Card>
   );

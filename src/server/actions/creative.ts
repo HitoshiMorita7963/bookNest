@@ -6,6 +6,7 @@ import { toUserError, type ActionResult } from "@/lib/errors";
 import type { ChapterInput, CharacterInput, CreativeNoteInput, LinkInput, PlotInput, ProjectInput, SceneInput, WorldInput } from "@/lib/validators";
 import * as creative from "@/server/services/creative";
 import * as novels from "@/server/services/novels";
+import { syncSheetLater } from "@/server/sheets-sync";
 
 function done<T>(data: T): ActionResult<T> {
   revalidatePath("/", "layout");
@@ -28,20 +29,28 @@ export async function createCreativeNoteAction(input: CreativeNoteInput, link?: 
     if (link?.source) await creative.createLink(prisma, { source: link.source, target: { kind: "note", id: note.id }, purpose: link.purpose ?? null });
     // そのまま作品（人物・シーンなど）に追加する
     if (link?.target) await creative.createLink(prisma, { source: { kind: "note", id: note.id }, target: link.target, purpose: link.purpose ?? null });
+    syncSheetLater("note", note.id);
     return { id: note.id };
   });
 }
 export async function updateCreativeNoteAction(id: string, input: CreativeNoteInput) {
   return run(async () => {
     await creative.updateCreativeNote(prisma, id, input);
+    syncSheetLater("note", id);
     return { id };
   });
 }
 export async function setCreativeNoteStatusAction(id: string, status: string) {
-  return run(async () => void (await creative.setCreativeNoteStatus(prisma, id, status)));
+  return run(async () => {
+    await creative.setCreativeNoteStatus(prisma, id, status);
+    syncSheetLater("note", id);
+  });
 }
 export async function deleteCreativeNoteAction(id: string) {
-  return run(() => creative.deleteCreativeNote(prisma, id));
+  return run(async () => {
+    await creative.deleteCreativeNote(prisma, id);
+    syncSheetLater("note", id);
+  });
 }
 export async function pickCreativeNotesAction(q: string) {
   return creative.pickCreativeNotes(prisma, q.slice(0, 100));
@@ -50,13 +59,20 @@ export async function pickCreativeNotesAction(q: string) {
 /* ---------------- 紐付け ---------------- */
 
 export async function createLinkAction(input: LinkInput) {
-  return run(async () => void (await creative.createLink(prisma, input)));
+  return run(async () => {
+    await creative.createLink(prisma, input);
+    syncSheetLater("note", input.source.kind === "note" ? input.source.id : null, input.target.kind === "note" ? input.target.id : null);
+  });
 }
 export async function updateLinkPurposeAction(id: string, purpose: string | null) {
   return run(async () => void (await creative.updateLinkPurpose(prisma, id, purpose)));
 }
 export async function deleteLinkAction(id: string) {
-  return run(() => creative.deleteLink(prisma, id));
+  return run(async () => {
+    const l = await prisma.creativeLink.findUnique({ where: { id }, select: { noteId: true, targetNoteId: true } });
+    await creative.deleteLink(prisma, id);
+    syncSheetLater("note", l?.noteId, l?.targetNoteId);
+  });
 }
 export async function listCreativeTargetsAction() {
   return creative.listCreativeTargets(prisma);

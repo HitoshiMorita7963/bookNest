@@ -73,13 +73,16 @@ npm run dev
 | --- | --- | --- |
 | `DATABASE_URL` | ✅ | SQLite の場所。既定 `file:../data/booknest.db`（`prisma/` からの相対パス） |
 | `GOOGLE_BOOKS_API_KEY` | | Google Books API キー（任意。未設定でも動作しますが回数制限が厳しくなります） |
-| `AI_PROVIDER` | | `anthropic` または `none`。未設定時はキーがあれば `anthropic` |
-| `AI_API_KEY` | | Anthropic API キー。未設定の場合、AI 司書は「検索モード」で動作します |
+| `RAKUTEN_APP_ID` / `RAKUTEN_ACCESS_KEY` | | 楽天ブックスAPI（任意）。日本の本の表紙画像・書誌情報を最優先で取得します |
+| `AI_PROVIDER` | | `openai`（ChatGPT）/ `anthropic`（Claude）/ `none`。未設定時はキーがあれば `anthropic` |
+| `AI_API_KEY` | | 選んだプロバイダの API キー。未設定の場合、AI 司書は「検索モード」で動作します |
 | `APP_PASSWORD` | クラウドでは✅ | ログイン用パスワード。設定するとログインが必要になります |
 | `AUTH_SECRET` | | セッション署名用のランダムな文字列（任意） |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | クラウドでは✅ | クラウドの DB（Turso）。設定するとローカルの SQLite の代わりに使います |
 | `BLOB_READ_WRITE_TOKEN` | クラウドでは✅ | 画像の保存先（Vercel Blob）。Vercel で Blob を接続すると自動設定 |
-| `AI_MODEL` | | 使用モデル（既定 `claude-opus-5`） |
+| `AI_MODEL` | | 使用モデルのID（既定：openai は `gpt-6-luna`、anthropic は `claude-opus-5`） |
+| `SHEETS_WEBHOOK_URL` / `SHEETS_WEBHOOK_SECRET` | | Google スプレッドシートへの自動反映（任意。[docs/sheets-sync.md](docs/sheets-sync.md)） |
+| `APP_URL` | | BookNest の公開URL（任意。スプレッドシートのリンク列に使用） |
 | `OCR_PROVIDER` | | `tesseract`（既定・端末内処理）または `google-vision` |
 | `OCR_API_KEY` | | `google-vision` 使用時の Google Cloud Vision API キー |
 | `MAX_UPLOAD_MB` | | アップロード画像の最大サイズ（既定 10） |
@@ -140,7 +143,8 @@ PC を起動していなくてもスマホから使えるよう、無料のク�
 
 ## ISBN 検索について
 
-- `src/server/services/metadata.ts` の **BookMetadataService** がプロバイダを順に問い合わせ、欠けている項目を補完し合います：openBD（日本の書籍に強い・キー不要）→ 国立国会図書館サーチ（キー不要）→ Google Books（キー任意）。
+- `src/server/services/metadata.ts` の **BookMetadataService** がプロバイダを順に問い合わせ、欠けている項目を補完し合います：楽天ブックス（キー設定時・表紙画像が最も充実）→ openBD（キー不要）→ 国立国会図書館サーチ（キー不要）→ Google Books（キー任意）。
+- **表紙画像**：上記で見つからない場合、国立国会図書館のサムネイル → Google Books のタイトル検索（ISBN が一致したもののみ）の順に探します。設定画面の「表紙を一括取得」で、表紙のない本をまとめて補完できます。
 - 取得項目：タイトル・よみ・著者・出版社・発売日・ページ数・書影・ISBN-10/13・内容紹介・シリーズ。ISBN はチェックディジットを検証し、10 桁 / 13 桁を相互変換します。
 - すべてのプロバイダで見つからない・通信に失敗した場合も、そのまま手動で登録できます。
 - バーコード：ブラウザ標準の BarcodeDetector（Android Chrome など）→ 非対応ブラウザ（iOS Safari など）では ZXing → カメラが使えない場合は「写真から読み取る」へフォールバックします。
@@ -156,7 +160,7 @@ PC を起動していなくてもスマホから使えるよう、無料のク�
 
 ## AI 機能について
 
-- **プロバイダの抽象化**：`src/server/ai/provider.ts` の `AiProvider` インターフェース。現在は Anthropic（Claude）を実装しています。API キーは環境変数からのみ読み込みます。
+- **プロバイダの抽象化**：`src/server/ai/provider.ts` の `AiProvider` インターフェース。Anthropic（Claude）と OpenAI（ChatGPT）を実装しており、`AI_PROVIDER` で切り替えます。API キーは環境変数からのみ読み込みます。
 - **プライバシー**：AI 機能は既定でオフです。`.env` に `AI_API_KEY` を設定し、さらに設定画面で「AI 機能を使う」をオンにした場合のみ、質問に関係する本・感想・フレーズ・知識の一部が AI プロバイダに送信されます。
 - **AI 司書**（`/ai`）：Claude がアプリ内データを検索するツール（横断検索・本の一覧/詳細・フレーズ・知識・読書傾向・次に読む候補）を使って回答します。回答には「参考にした本・フレーズ・知識」を表示します（AI が示した出典のうち、実際にツールが返したデータだけを表示）。データから分かることと推測を区別し、ユーザーの考えを断定しないよう指示しています。会話は保存され、後から見返せます。
 - **AI が使えない場合**は「検索モード」として、質問からキーワード・期間を抽出したアプリ内検索の結果を表示します。
@@ -164,7 +168,7 @@ PC を起動していなくてもスマホから使えるよう、無料のク�
 - **AI フレーズ分析**（フレーズ詳細）：テーマ・追加タグ・関連する知識・似た過去のフレーズ・知識ノート案を「AI 提案」として表示し、選んだものだけ保存します。
 - **AI 読書傾向のまとめ**（読書傾向ページ）：集計データにもとづいて、断定しすぎない表現で文章化します。
 - **AI 編集者**（作品 → 🤖 AI編集者）：AI 司書と同じ仕組みに、創作データ用のツール（創作検索・作品構成・人物・章・参考資料・類似メモ）を追加。相談対象（作品・章・人物・関連創作メモ・関連読書資料）を選べ、AI に送るのは作品の基本情報・選んだ対象・質問に関係して検索されたデータだけです。回答は「現在保存されている情報／AIによる整理／考えられる選択肢／提案」に分けて表示し、変更案は採用するまで保存されません。相談履歴は作品ごとに保存されます。
-- 既定モデルは `claude-opus-5`。安全性の判断で回答が拒否された場合に備え、サーバー側フォールバック（`fallbacks: "default"`）を有効にしています。
+- Anthropic の既定モデルは `claude-opus-5`。安全性の判断で回答が拒否された場合に備え、サーバー側フォールバック（`fallbacks: "default"`）を有効にしています。
 
 ## テスト
 
