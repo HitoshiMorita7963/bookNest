@@ -2,6 +2,8 @@ import { Sidebar, BottomNav } from "@/components/layout/app-nav";
 
 // すべての画面は個人の最新データを表示するため、常にリクエスト時にレンダリングする
 export const dynamic = "force-dynamic";
+// AI 司書など時間のかかる処理のため（Vercel のサーバー関数の実行時間上限・秒）
+export const maxDuration = 60;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (

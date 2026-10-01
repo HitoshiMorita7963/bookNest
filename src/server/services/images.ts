@@ -1,12 +1,14 @@
 /**
  * ImageStorageService
- * アップロード画像を検証・リサイズ・圧縮して data/uploads に保存する。
- * 保存先を S3 等に差し替える場合はこのファイルだけを変更すればよい。
+ * アップロード画像を検証・リサイズ・圧縮して保存する。
+ * 保存先：BLOB_READ_WRITE_TOKEN があれば Vercel Blob（非公開）、なければローカルの data/uploads。
+ * どちらの場合も画像は /api/files/<name> 経由で配信する（ログインが必要）。
  */
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { del as blobDel, get as blobGet, put as blobPut } from "@vercel/blob";
 import { AppError } from "@/lib/errors";
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "@/lib/constants";
 
@@ -43,10 +45,18 @@ export async function saveImage(buffer: Buffer, mime: string, kind: ImageKind = 
   } catch {
     throw new AppError("画像を読み込めませんでした。別の画像でお試しください。", "IMAGE_ERROR");
   }
-  await mkdir(UPLOAD_DIR, { recursive: true });
   const name = `${kind}-${randomUUID()}.webp`;
-  await writeFile(path.join(UPLOAD_DIR, name), out);
+  if (blobStorageEnabled()) {
+    await blobPut(`uploads/${name}`, out, { access: "private", contentType: "image/webp", addRandomSuffix: false });
+  } else {
+    await mkdir(UPLOAD_DIR, { recursive: true });
+    await writeFile(path.join(UPLOAD_DIR, name), out);
+  }
   return `/api/files/${name}`;
+}
+
+function blobStorageEnabled() {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
 }
 
 export function isSafeFileName(name: string) {
@@ -56,6 +66,11 @@ export function isSafeFileName(name: string) {
 export async function readImage(name: string): Promise<Buffer | null> {
   if (!isSafeFileName(name)) return null;
   try {
+    if (blobStorageEnabled()) {
+      const r = await blobGet(`uploads/${name}`, { access: "private" });
+      if (!r) return null;
+      return Buffer.from(await new Response(r.stream).arrayBuffer());
+    }
     return await readFile(path.join(UPLOAD_DIR, name));
   } catch {
     return null;
@@ -66,7 +81,8 @@ export async function deleteImageByUrl(url: string | null | undefined) {
   if (!url?.startsWith("/api/files/")) return;
   const name = url.slice("/api/files/".length);
   if (!isSafeFileName(name)) return;
-  await unlink(path.join(UPLOAD_DIR, name)).catch(() => undefined);
+  if (blobStorageEnabled()) await blobDel(`uploads/${name}`).catch(() => undefined);
+  else await unlink(path.join(UPLOAD_DIR, name)).catch(() => undefined);
 }
 
 /** 外部 URL の書影を取得してローカル保存（オフライン表示用） */

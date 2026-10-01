@@ -4,6 +4,8 @@ import { AiCard, DataCard, OcrCard, ProfileCard, PwaCard, ThemeCard } from "@/co
 import { getSettings, getUser } from "@/server/services/settings";
 import { hasSampleData } from "@/server/services/sample";
 import { aiConfig } from "@/server/ai/config";
+import { authEnabled } from "@/lib/auth";
+import { LogoutButton } from "@/components/auth/login-form";
 
 export const metadata = { title: "設定" };
 export const dynamic = "force-dynamic";
@@ -22,6 +24,11 @@ export default async function SettingsPage() {
         <DataCard hasSample={sample} />
         <AiCard settings={settings} configured={ai.configured} model={ai.model} />
         <OcrCard serverAvailable={ocrServer} />
+        {authEnabled() ? (
+          <div className="flex justify-center pt-2">
+            <LogoutButton />
+          </div>
+        ) : null}
         <p className="pt-4 text-center text-xs text-muted-foreground">BookNest v0.1.0 ・ データはこの端末（サーバー）の SQLite に保存されています</p>
       </div>
     </div>

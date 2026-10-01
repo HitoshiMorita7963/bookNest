@@ -8,6 +8,7 @@
  * 新しいエンジンは OcrEngine を実装して ENGINES に追加する。
  */
 import { cleanOcrText } from "./text";
+import { downscaleImage } from "@/lib/client/image";
 
 export type OcrDirection = "horizontal" | "vertical";
 
@@ -83,8 +84,10 @@ export const serverEngine: OcrEngine = {
   name: "server",
   async recognize(image, opts) {
     opts.onProgress?.({ status: "サーバーで文字を認識しています", progress: 0.3 });
+    // サーバーへの送信サイズを抑える（クラウドのリクエスト上限対策）
+    const upload = image.size > 2_500_000 ? await downscaleImage(image, 2400, 0.9) : image;
     const fd = new FormData();
-    fd.append("file", new File([image], "ocr.jpg", { type: image.type || "image/jpeg" }));
+    fd.append("file", new File([upload], "ocr.jpg", { type: upload.type || "image/jpeg" }));
     fd.append("direction", opts.direction);
     const res = await fetch("/api/ocr", { method: "POST", body: fd });
     const json = (await res.json().catch(() => null)) as { ok: boolean; text?: string; confidence?: number; error?: string } | null;
