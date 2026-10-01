@@ -64,7 +64,12 @@ PC を起動していなくても、スマホからいつでも BookNest を使�
    | `GOOGLE_BOOKS_API_KEY` | `.env` と同じ値 | 任意 |
    | `OCR_PROVIDER` | `google-vision`（Google の OCR を使う場合） | 任意 |
    | `OCR_API_KEY` | `.env` と同じ値 | 任意 |
-   | `AI_API_KEY` | Anthropic の API キー（AI 司書を使う場合） | 任意 |
+   | `AI_PROVIDER` | `openai`（ChatGPT）または `anthropic`（Claude） | 任意 |
+   | `AI_API_KEY` | 選んだプロバイダの API キー（AI 司書を使う場合） | 任意 |
+   | `AI_MODEL` | モデルID（例：`gpt-6-luna`） | 任意 |
+   | `RAKUTEN_APP_ID` / `RAKUTEN_ACCESS_KEY` | 楽天ブックスAPI（表紙画像の取得） | 任意 |
+   | `SHEETS_WEBHOOK_URL` / `SHEETS_WEBHOOK_SECRET` | スプレッドシート自動反映（[手順](sheets-sync.md)） | 任意 |
+   | `APP_URL` | 公開URL（例：`https://booknest-xxxx.vercel.app`） | 任意 |
 
 4. **「Deploy」** を押します。2〜3分で完了し、`https://booknest-xxxx.vercel.app` のようなアドレスができます。
 

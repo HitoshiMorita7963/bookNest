@@ -7,6 +7,7 @@ import type { BookInput } from "@/lib/validators";
 import * as books from "@/server/services/books";
 import { bookMetadataService, type BookMetadata } from "@/server/services/metadata";
 import { parseIsbn } from "@/lib/isbn";
+import { syncBookRowsLater, syncSheetLater } from "@/server/sheets-sync";
 
 function revalidateBooks(id?: string) {
   revalidatePath("/", "layout");
@@ -26,6 +27,7 @@ export async function createBookAction(input: BookInput): Promise<ActionResult<{
 export async function updateBookAction(id: string, input: BookInput): Promise<ActionResult<{ id: string }>> {
   try {
     await books.updateBook(prisma, id, input);
+    await syncBookRowsLater(id);
     revalidateBooks(id);
     return { ok: true, data: { id } };
   } catch (e) {
@@ -35,7 +37,13 @@ export async function updateBookAction(id: string, input: BookInput): Promise<Ac
 
 export async function deleteBookAction(id: string): Promise<ActionResult> {
   try {
+    const [qs, ks] = await Promise.all([
+      prisma.quote.findMany({ where: { bookId: id }, select: { id: true } }),
+      prisma.bookKnowledge.findMany({ where: { bookId: id }, select: { knowledgeId: true } }),
+    ]);
     await books.deleteBook(prisma, id);
+    syncSheetLater("quote", ...qs.map((q) => q.id));
+    syncSheetLater("knowledge", ...ks.map((k) => k.knowledgeId));
     revalidateBooks();
     return { ok: true, data: undefined };
   } catch (e) {

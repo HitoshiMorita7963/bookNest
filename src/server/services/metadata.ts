@@ -1,6 +1,7 @@
 /**
  * BookMetadataService
  * ISBN から書誌情報を取得する。プロバイダを差し替え・追加できるよう抽象化している。
+ *  - 楽天ブックス（表紙画像が最も充実・要 RAKUTEN_APP_ID / RAKUTEN_ACCESS_KEY）
  *  - openBD（日本の書籍に強い・キー不要）
  *  - 国立国会図書館サーチ OpenSearch（キー不要）
  *  - Google Books（キー任意: GOOGLE_BOOKS_API_KEY）
@@ -73,6 +74,82 @@ function splitAuthors(raw?: string | null): string[] {
   if (!raw) return [];
   return Array.from(new Set(raw.split(/[／\/|]|\s{2,}/).map(cleanAuthor).filter(Boolean)));
 }
+
+// ---------- 楽天ブックス（RAKUTEN_APP_ID + RAKUTEN_ACCESS_KEY） ----------
+interface RakutenItem {
+  title?: string;
+  titleKana?: string;
+  subTitle?: string;
+  seriesName?: string;
+  author?: string;
+  publisherName?: string;
+  isbn?: string;
+  itemCaption?: string;
+  salesDate?: string;
+  largeImageUrl?: string;
+  mediumImageUrl?: string;
+}
+
+export function rakutenConfigured() {
+  return !!process.env.RAKUTEN_APP_ID?.trim() && !!process.env.RAKUTEN_ACCESS_KEY?.trim();
+}
+
+/** 楽天の画像は ?_ex=200x200 で縮小されているので、大きめのサイズを指定し直す。画像なしの代替画像は除外 */
+export function rakutenCover(url?: string | null): string | null {
+  if (!url || /noimage/i.test(url)) return null;
+  return url.replace(/^http:/, "https:").replace(/_ex=\d+x\d+/, "_ex=400x400");
+}
+
+function fromRakuten(it: RakutenItem): BookMetadata | null {
+  if (!it.title) return null;
+  const isbn = it.isbn?.replace(/[^0-9X]/gi, "") || null;
+  return {
+    title: it.title,
+    titleKana: it.titleKana || null,
+    subtitle: it.subTitle || null,
+    authors: splitAuthors(it.author),
+    publisher: it.publisherName || null,
+    publishedAt: normalizeDate(it.salesDate?.replace(/頃$/, "")),
+    coverImage: rakutenCover(it.largeImageUrl || it.mediumImageUrl),
+    isbn13: isbn && isbn.length === 13 ? isbn : null,
+    description: it.itemCaption || null,
+    language: "ja",
+    seriesTitle: it.seriesName || null,
+    source: "楽天ブックス",
+  };
+}
+
+async function rakutenSearch(params: Record<string, string>, hits = 1): Promise<BookMetadata[]> {
+  // 2026年以降の楽天APIはアプリID と アクセスキーの両方が必要
+  if (!rakutenConfigured()) return [];
+  const appId = process.env.RAKUTEN_APP_ID!.trim();
+  const qs = new URLSearchParams({ applicationId: appId, format: "json", formatVersion: "2", hits: String(hits), ...params });
+  const accessKey = process.env.RAKUTEN_ACCESS_KEY?.trim();
+  if (accessKey) qs.set("accessKey", accessKey);
+  const appUrl = process.env.APP_URL?.trim();
+  const res = await fetchWithTimeout(`https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${qs}`, {
+    headers: appUrl ? { Referer: appUrl, Origin: new URL(appUrl).origin } : {},
+  });
+  if (!res.ok) {
+    console.warn(`[metadata] 楽天ブックス HTTP ${res.status}`);
+    return [];
+  }
+  const json = (await res.json()) as { Items?: (RakutenItem | { Item?: RakutenItem })[] };
+  return (json.Items ?? [])
+    .map((x) => ("Item" in x && x.Item ? x.Item : (x as RakutenItem)))
+    .map(fromRakuten)
+    .filter((x): x is BookMetadata => !!x);
+}
+
+export const rakutenProvider: MetadataProvider = {
+  name: "楽天ブックス",
+  async lookupIsbn(isbn13) {
+    return (await rakutenSearch({ isbn: isbn13 }))[0] ?? null;
+  },
+  async search(query) {
+    return rakutenSearch({ title: query }, 20);
+  },
+};
 
 // ---------- openBD ----------
 interface OpenBdItem {
@@ -260,8 +337,30 @@ export class BookMetadataService {
     if (!merged) return null;
     merged.isbn13 = parsed.isbn13;
     merged.isbn10 = merged.isbn10 ?? parsed.isbn10;
-    if (!merged.coverImage) merged.coverImage = await ndlThumbnail(parsed.isbn13);
+    if (!merged.coverImage) merged.coverImage = await this.findCover(parsed.isbn13, merged.title, true, merged.authors);
     return merged;
+  }
+
+  /**
+   * 表紙画像だけを探す（一括取得用）。
+   * 楽天 → openBD → 国立国会図書館のサムネイル → Google Books（タイトル検索してISBNが一致したもの）の順。
+   * skipProviders=true のときは lookupIsbn で既に各プロバイダを試した後なので、残りだけを試す。
+   */
+  async findCover(isbn13: string, title?: string | null, skipProviders = false, authors: string[] = []): Promise<string | null> {
+    if (!skipProviders) {
+      for (const p of this.providers) {
+        if (p === googleBooksProvider || p === ndlProvider) continue;
+        try {
+          const r = await p.lookupIsbn(isbn13);
+          if (r?.coverImage) return r.coverImage;
+        } catch (e) {
+          console.warn(`[metadata] ${p.name} failed:`, (e as Error).message);
+        }
+      }
+    }
+    const ndl = await ndlThumbnail(isbn13);
+    if (ndl) return ndl;
+    return title ? googleCoverByTitle(title, isbn13, authors) : null;
   }
 
   async search(query: string): Promise<BookMetadata[]> {
@@ -285,6 +384,35 @@ export class BookMetadataService {
   }
 }
 
+const squash = (s: string) => s.normalize("NFKC").replace(/[\s・、。,.:：!！?？「」『』]/g, "").toLowerCase();
+
+/**
+ * Google Books は日本の本を ISBN で引けないことが多いので、タイトルで探して表紙を使う。
+ * ISBN が一致したものを優先し、なければ「タイトルが完全に一致し、著者も一致する」もの（電子書籍版など）を使う。
+ */
+async function googleCoverByTitle(title: string, isbn13: string, authors: string[] = []): Promise<string | null> {
+  // 副題・文庫の整理番号（例「せ8-3」）を外して検索する
+  const t = title.split(/\s+[:：]\s*|[（(]/)[0].replace(/\s+\S{1,3}\d+-\d+$/, "").trim() || title;
+  try {
+    const res = await fetchWithTimeout(googleUrl(`intitle:${t}`, 20));
+    if (!res.ok) return null;
+    const json = (await res.json()) as { items?: GVolume[] };
+    const isbn10 = parseIsbn(isbn13)?.isbn10;
+    const found = (json.items ?? []).map(fromGoogle).filter((m): m is BookMetadata => !!m?.coverImage);
+    const byIsbn = found.find((m) => m.isbn13 === isbn13 || (isbn10 && m.isbn10 === isbn10));
+    if (byIsbn) return byIsbn.coverImage!;
+    const wantAuthors = authors.map(squash).filter(Boolean);
+    if (!wantAuthors.length) return null;
+    const byTitle = found.find(
+      (m) => squash(m.title) === squash(t) && m.authors.some((a) => wantAuthors.some((w) => squash(a).includes(w) || w.includes(squash(a)))),
+    );
+    return byTitle?.coverImage ?? null;
+  } catch {
+    /* 見つからなければ諦める */
+  }
+  return null;
+}
+
 async function ndlThumbnail(isbn13: string): Promise<string | null> {
   const url = `https://ndlsearch.ndl.go.jp/thumbnail/${isbn13}.jpg`;
   try {
@@ -297,4 +425,4 @@ async function ndlThumbnail(isbn13: string): Promise<string | null> {
   }
 }
 
-export const bookMetadataService = new BookMetadataService([openBdProvider, ndlProvider, googleBooksProvider]);
+export const bookMetadataService = new BookMetadataService([rakutenProvider, openBdProvider, ndlProvider, googleBooksProvider]);
