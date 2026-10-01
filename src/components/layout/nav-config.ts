@@ -20,6 +20,9 @@ import {
   TrendingUp,
   Sparkles,
   CalendarDays,
+  PenSquare,
+  Lightbulb,
+  NotebookPen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +58,14 @@ export const SIDEBAR_GROUPS: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: "創作",
+    items: [
+      { href: "/creative", label: "創作ホーム", icon: PenSquare },
+      { href: "/creative/notes", label: "創作メモ", icon: Lightbulb },
+      { href: "/creative/projects/new", label: "新しい小説", icon: NotebookPen },
+    ],
+  },
+  {
     title: "振り返り",
     items: [
       { href: "/stats", label: "統計", icon: BarChart3 },
@@ -76,6 +87,7 @@ export const SIDEBAR_GROUPS: { title?: string; items: NavItem[] }[] = [
 export function isActive(item: NavItem, pathname: string, search: string) {
   if (item.match) return item.match(pathname, search);
   if (item.href === "/") return pathname === "/";
+  if (item.href === "/creative") return pathname === "/creative" || pathname.startsWith("/creative/projects/") && !pathname.startsWith("/creative/projects/new");
   if (item.href === "/knowledge") return pathname === "/knowledge" || (pathname.startsWith("/knowledge/") && !pathname.startsWith("/knowledge/map"));
   return pathname === item.href || pathname.startsWith(item.href + "/");
 }

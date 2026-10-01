@@ -10,6 +10,7 @@ import { TagChip, SectionTitle } from "@/components/books/bits";
 import { DeleteQuoteButton, QuoteMenu } from "@/components/quotes/quote-menu";
 import { Button } from "@/components/ui/button";
 import { AiQuoteAnalysis } from "@/components/ai/ai-quote-analysis";
+import { CreativeUsageSection } from "@/components/creative/usage-section";
 
 export const metadata = { title: "フレーズ" };
 
@@ -81,6 +82,9 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
           )}
         </section>
 
+
+        <CreativeUsageSection source={{ kind: "quote", id: q.id }} defaultTitle={q.text.slice(0, 30)} defaultContent={`「${q.text}」${q.book ? `
+——『${q.book.title}』${q.pageNumber ? ` ${q.pageNumber}` : ""}` : ""}`} />
 
         <AiQuoteAnalysis quoteId={q.id} quoteText={q.text} book={q.book ? { id: q.book.id, title: q.book.title } : null} />
 

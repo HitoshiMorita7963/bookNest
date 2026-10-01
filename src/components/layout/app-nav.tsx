@@ -7,7 +7,9 @@ import {
   Home,
   Library,
   Plus,
-  BarChart3,
+  PenSquare,
+  Lightbulb,
+  Brain,
   Menu,
   ScanBarcode,
   Search,
@@ -78,6 +80,9 @@ const ADD_ACTIONS = [
   { href: "/books/new?mode=search", label: "ISBN・タイトルで検索", desc: "書誌情報を自動取得", icon: Search },
   { href: "/books/new?mode=manual", label: "手入力で登録", desc: "すべて自分で入力", icon: PenLine },
   { href: "/quotes/new", label: "フレーズを撮影", desc: "カメラ → OCR → 保存", icon: Camera },
+  { href: "/creative/notes/new", label: "創作メモ", desc: "思いついたアイデアをすぐ保存", icon: Lightbulb },
+  { href: "/creative/projects/new", label: "小説プロジェクト", desc: "新しい作品を作る", icon: PenSquare },
+  { href: "/knowledge/new", label: "知識を保存", desc: "読んで得た理解をまとめる", icon: Brain },
   { href: "/reading", label: "読書の進捗・メモ", desc: "読書中の本を更新", icon: NotebookPen },
 ];
 
@@ -88,7 +93,7 @@ function BottomNavInner() {
     { href: "/", label: "ホーム", icon: Home, active: pathname === "/" },
     { href: "/books", label: "本棚", icon: Library, active: pathname.startsWith("/books") || pathname.startsWith("/reading") || pathname.startsWith("/tsundoku") || pathname.startsWith("/shelves") },
     null,
-    { href: "/stats", label: "統計", icon: BarChart3, active: pathname.startsWith("/stats") || pathname.startsWith("/goals") || pathname.startsWith("/calendar") },
+    { href: "/creative", label: "創作", icon: PenSquare, active: pathname.startsWith("/creative") },
     { href: "/more", label: "その他", icon: Menu, active: pathname.startsWith("/more") },
   ];
   return (

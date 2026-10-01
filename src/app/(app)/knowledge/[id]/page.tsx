@@ -9,6 +9,7 @@ import { BookCover } from "@/components/books/book-cover";
 import { SectionTitle, TagChip, authorNames } from "@/components/books/bits";
 import { QuoteCard } from "@/components/quotes/quote-card";
 import { KnowledgeMenu, UnlinkKnowledgeButton } from "@/components/knowledge/knowledge-client";
+import { CreativeUsageSection } from "@/components/creative/usage-section";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -82,6 +83,8 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
             <p className="text-sm text-muted-foreground">右上のメニュー「他の知識とつなげる」から関連付けると、知識マップに表示されます。</p>
           )}
         </section>
+
+        <CreativeUsageSection source={{ kind: "knowledge", id: k.id }} defaultTitle={k.title} defaultContent={k.content} />
 
         {k.quotes.length ? (
           <section>

@@ -130,7 +130,7 @@ export async function askLibrarian(db: Db, conversationId: string | null, questi
   if (!q) throw new AppError("質問を入力してください", "VALIDATION");
   if (q.length > 2000) throw new AppError("質問は2000文字以内で入力してください", "VALIDATION");
 
-  let conv = conversationId ? await db.aIConversation.findUnique({ where: { id: conversationId }, include: { messages: { orderBy: { createdAt: "asc" } } } }) : null;
+  let conv = conversationId ? await db.aIConversation.findFirst({ where: { id: conversationId, projectId: null }, include: { messages: { orderBy: { createdAt: "asc" } } } }) : null;
   if (conversationId && !conv) throw new NotFoundError("会話");
   if (!conv) conv = { ...(await db.aIConversation.create({ data: { title: q.slice(0, 40) } })), messages: [] };
 

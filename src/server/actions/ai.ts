@@ -85,3 +85,26 @@ export async function applyQuoteSuggestionAction(quoteId: string, patch: { addTa
     return toUserError(e);
   }
 }
+
+/* ---------------- AI 編集者 ---------------- */
+import { applyProposal, askEditor, type EditorContext, type Proposal } from "@/server/ai/editor";
+
+export async function askEditorAction(projectId: string, conversationId: string | null, question: string, ctx: EditorContext) {
+  try {
+    const r = await askEditor(prisma, projectId, conversationId, question, ctx);
+    revalidatePath(`/creative/projects/${projectId}/ai`);
+    return { ok: true as const, data: r };
+  } catch (e) {
+    return toUserError(e);
+  }
+}
+
+export async function applyProposalAction(projectId: string, proposal: Proposal): Promise<ActionResult<{ kind: string; id: string }>> {
+  try {
+    const r = await applyProposal(prisma, projectId, proposal);
+    revalidatePath("/", "layout");
+    return { ok: true, data: r };
+  } catch (e) {
+    return toUserError(e);
+  }
+}

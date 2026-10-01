@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const WIDTHS = [375, 390, 414, 430, 768, 1024, 1440];
-const PAGES = ["/", "/books", "/books?view=grid", "/reading", "/tsundoku", "/search?q=本", "/quotes", "/knowledge", "/knowledge/map", "/stats", "/calendar", "/goals", "/authors", "/series", "/shelves", "/paths", "/insights", "/life", "/ai", "/settings", "/more", "/books/new"];
+const PAGES = ["/", "/creative", "/creative/notes", "/creative/projects/new", "/creative/notes/new", "/books", "/books?view=grid", "/reading", "/tsundoku", "/search?q=本", "/quotes", "/knowledge", "/knowledge/map", "/stats", "/calendar", "/goals", "/authors", "/series", "/shelves", "/paths", "/insights", "/life", "/ai", "/settings", "/more", "/books/new"];
 
 test.beforeAll(async ({ browser }) => {
   // サンプルデータを投入（設定画面から）
