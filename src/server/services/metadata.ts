@@ -126,12 +126,13 @@ async function rakutenSearch(params: Record<string, string>, hits = 1): Promise<
   const qs = new URLSearchParams({ applicationId: appId, format: "json", formatVersion: "2", hits: String(hits), ...params });
   const accessKey = process.env.RAKUTEN_ACCESS_KEY?.trim();
   if (accessKey) qs.set("accessKey", accessKey);
-  const appUrl = process.env.APP_URL?.trim();
+  // 楽天は「許可されたWebサイト」に登録したURLを Origin / Referer として送る必要がある
+  const appUrl = process.env.RAKUTEN_ALLOWED_URL?.trim() || process.env.APP_URL?.trim();
   const res = await fetchWithTimeout(`https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?${qs}`, {
     headers: appUrl ? { Referer: appUrl, Origin: new URL(appUrl).origin } : {},
   });
   if (!res.ok) {
-    console.warn(`[metadata] 楽天ブックス HTTP ${res.status}`);
+    console.warn(`[metadata] 楽天ブックス HTTP ${res.status}${appUrl ? "" : "（APP_URL が未設定です。楽天の『許可されたWebサイト』と同じURLを設定してください）"}`);
     return [];
   }
   const json = (await res.json()) as { Items?: (RakutenItem | { Item?: RakutenItem })[] };

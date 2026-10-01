@@ -73,7 +73,7 @@ npm run dev
 | --- | --- | --- |
 | `DATABASE_URL` | ✅ | SQLite の場所。既定 `file:../data/booknest.db`（`prisma/` からの相対パス） |
 | `GOOGLE_BOOKS_API_KEY` | | Google Books API キー（任意。未設定でも動作しますが回数制限が厳しくなります） |
-| `RAKUTEN_APP_ID` / `RAKUTEN_ACCESS_KEY` | | 楽天ブックスAPI（任意）。日本の本の表紙画像・書誌情報を最優先で取得します |
+| `RAKUTEN_APP_ID` / `RAKUTEN_ACCESS_KEY` | | 楽天ブックスAPI（任意）。日本の本の表紙画像・書誌情報を最優先で取得します。楽天の「許可されたWebサイト」と同じURLを `APP_URL`（または `RAKUTEN_ALLOWED_URL`）に設定してください |
 | `AI_PROVIDER` | | `openai`（ChatGPT）/ `anthropic`（Claude）/ `none`。未設定時はキーがあれば `anthropic` |
 | `AI_API_KEY` | | 選んだプロバイダの API キー。未設定の場合、AI 司書は「検索モード」で動作します |
 | `APP_PASSWORD` | クラウドでは✅ | ログイン用パスワード。設定するとログインが必要になります |
