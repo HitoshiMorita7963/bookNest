@@ -1,0 +1,157 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* 落ち着いた紙とインクの配色。長時間の読書でも疲れにくいコントラストに調整 */
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.006 85);
+  --foreground: oklch(0.24 0.015 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.015 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.015 60);
+  --primary: oklch(0.42 0.07 175);
+  --primary-foreground: oklch(0.985 0.005 85);
+  --secondary: oklch(0.95 0.012 80);
+  --secondary-foreground: oklch(0.3 0.02 60);
+  --muted: oklch(0.955 0.01 80);
+  --muted-foreground: oklch(0.5 0.015 60);
+  --accent: oklch(0.93 0.03 75);
+  --accent-foreground: oklch(0.3 0.03 60);
+  --destructive: oklch(0.55 0.2 27);
+  --border: oklch(0.9 0.012 75);
+  --input: oklch(0.88 0.012 75);
+  --ring: oklch(0.55 0.08 175);
+  --highlight: oklch(0.78 0.13 75);
+  --chart-1: oklch(0.5 0.08 175);
+  --chart-2: oklch(0.7 0.13 70);
+  --chart-3: oklch(0.55 0.12 280);
+  --chart-4: oklch(0.6 0.14 25);
+  --chart-5: oklch(0.6 0.1 130);
+  --sidebar: oklch(0.97 0.008 80);
+  --heat-0: oklch(0.93 0.01 80);
+  --heat-1: oklch(0.85 0.06 170);
+  --heat-2: oklch(0.72 0.09 172);
+  --heat-3: oklch(0.58 0.09 175);
+  --heat-4: oklch(0.44 0.08 178);
+}
+
+.dark {
+  --background: oklch(0.19 0.01 60);
+  --foreground: oklch(0.92 0.01 80);
+  --card: oklch(0.23 0.012 60);
+  --card-foreground: oklch(0.92 0.01 80);
+  --popover: oklch(0.24 0.012 60);
+  --popover-foreground: oklch(0.92 0.01 80);
+  --primary: oklch(0.72 0.09 172);
+  --primary-foreground: oklch(0.18 0.02 175);
+  --secondary: oklch(0.28 0.012 60);
+  --secondary-foreground: oklch(0.9 0.01 80);
+  --muted: oklch(0.27 0.01 60);
+  --muted-foreground: oklch(0.7 0.012 75);
+  --accent: oklch(0.32 0.025 70);
+  --accent-foreground: oklch(0.92 0.01 80);
+  --destructive: oklch(0.65 0.19 25);
+  --border: oklch(0.33 0.012 60);
+  --input: oklch(0.36 0.012 60);
+  --ring: oklch(0.65 0.08 172);
+  --highlight: oklch(0.75 0.12 75);
+  --chart-1: oklch(0.72 0.09 172);
+  --chart-2: oklch(0.78 0.12 75);
+  --chart-3: oklch(0.7 0.12 285);
+  --chart-4: oklch(0.7 0.14 25);
+  --chart-5: oklch(0.72 0.1 130);
+  --sidebar: oklch(0.21 0.01 60);
+  --heat-0: oklch(0.27 0.01 60);
+  --heat-1: oklch(0.36 0.05 172);
+  --heat-2: oklch(0.48 0.07 172);
+  --heat-3: oklch(0.6 0.08 172);
+  --heat-4: oklch(0.74 0.09 172);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-highlight: var(--highlight);
+  --color-sidebar: var(--sidebar);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  --font-serif: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", "Noto Serif CJK JP", serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-size: 16px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* iOS で入力時にズームされないよう 16px 以上を維持 */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.quote-text {
+  font-family: var(--font-serif);
+  line-height: 1.95;
+  letter-spacing: 0.02em;
+  white-space: pre-wrap;
+}
+
+.prose-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

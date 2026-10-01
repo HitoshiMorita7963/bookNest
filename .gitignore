@@ -1,0 +1,25 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# env (secrets)
+.env
+.env.local
+.env.*.local
+
+# local data
+data/*.db
+data/*.db-journal
+data/uploads/*
+!data/uploads/.gitkeep
+prisma/*.db
+prisma/*.db-journal
+tests/.tmp/
+
+# test output
+playwright-report/
+test-results/
