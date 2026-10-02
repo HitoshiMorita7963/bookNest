@@ -4,6 +4,7 @@ import { Heart } from "lucide-react";
 import { TagChip } from "@/components/books/bits";
 import { QuoteCardMenu } from "./quote-menu";
 import { ReadMore } from "@/components/ui/read-more";
+import { QUOTE_CLOSE, QUOTE_OPEN } from "@/lib/quote-marks";
 
 export interface QuoteCardData {
   id: string;
@@ -29,7 +30,9 @@ export function QuoteCard({ quote, highlight }: { quote: QuoteCardData; highligh
       </div>
       <div className="relative border-l-2 border-highlight pr-8 pl-3">
         <ReadMore as="blockquote" className="quote-text text-[16px]">
-          「{highlight ? <Highlighted text={quote.text} q={highlight} /> : quote.text}」
+          {QUOTE_OPEN}
+          {highlight ? <Highlighted text={quote.text} q={highlight} /> : quote.text}
+          {QUOTE_CLOSE}
         </ReadMore>
       </div>
       <div className="relative mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">

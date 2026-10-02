@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/overlays";
 import { deleteQuoteAction, toggleFavoriteAction } from "@/server/actions/quotes";
 import { cn } from "@/lib/utils";
+import { quoted } from "@/lib/quote-marks";
 
 export function QuoteMenu({ id, isFavorite, text }: { id: string; isFavorite: boolean; text: string }) {
   const router = useRouter();
@@ -25,7 +26,7 @@ export function QuoteMenu({ id, isFavorite, text }: { id: string; isFavorite: bo
   }
   async function share() {
     if (navigator.share) {
-      await navigator.share({ text: `「${text}」` }).catch(() => undefined);
+      await navigator.share({ text: quoted(text) }).catch(() => undefined);
     } else copy();
   }
 

@@ -13,6 +13,7 @@ import { pickKnowledgeAction, pickQuotesAction } from "@/server/actions/knowledg
 import { createLinkAction, pickCreativeNotesAction } from "@/server/actions/creative";
 import { LINK_SOURCE_KINDS, LINK_SOURCE_LABEL, REFERENCE_PURPOSES, type LinkSourceKind, type LinkTargetKind } from "@/lib/constants";
 import { cn, truncate } from "@/lib/utils";
+import { quoted } from "@/lib/quote-marks";
 
 interface Option {
   id: string;
@@ -22,7 +23,7 @@ interface Option {
 
 async function search(kind: LinkSourceKind, q: string): Promise<Option[]> {
   if (kind === "book") return (await pickBooksAction(q)).map((b) => ({ id: b.id, label: `『${b.title}』`, sub: b.authors.map((a) => a.author.name).join("、") }));
-  if (kind === "quote") return (await pickQuotesAction(q)).map((x) => ({ id: x.id, label: `「${truncate(x.text, 50)}」`, sub: x.book ? `『${x.book.title}』` : undefined }));
+  if (kind === "quote") return (await pickQuotesAction(q)).map((x) => ({ id: x.id, label: quoted(truncate(x.text, 50)), sub: x.book ? `『${x.book.title}』` : undefined }));
   if (kind === "knowledge") return (await pickKnowledgeAction(q)).map((k) => ({ id: k.id, label: `🧠 ${k.title}`, sub: k.category ?? undefined }));
   return (await pickCreativeNotesAction(q)).map((n) => ({ id: n.id, label: `💡 ${n.title}` }));
 }

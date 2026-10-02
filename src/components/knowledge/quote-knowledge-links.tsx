@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/form-controls";
 import { Sheet, SheetContent } from "@/components/ui/overlays";
 import { linkQuoteKnowledgeAction, pickKnowledgeAction, pickQuotesAction, unlinkQuoteKnowledgeAction } from "@/server/actions/knowledge";
 import { truncate } from "@/lib/utils";
+import { quoted } from "@/lib/quote-marks";
 
 interface PickItem {
   id: string;
@@ -88,7 +89,7 @@ function PickSheet({
 
 const searchKnowledge = async (q: string): Promise<PickItem[]> => (await pickKnowledgeAction(q)).map((k) => ({ id: k.id, label: `🧠 ${k.title}`, sub: k.category }));
 const searchQuotes = async (q: string): Promise<PickItem[]> =>
-  (await pickQuotesAction(q)).map((x) => ({ id: x.id, label: `「${truncate(x.text, 60)}」`, sub: x.book ? `『${x.book.title}』` : null }));
+  (await pickQuotesAction(q)).map((x) => ({ id: x.id, label: quoted(truncate(x.text, 60)), sub: x.book ? `『${x.book.title}』` : null }));
 
 /** フレーズ詳細：既存の知識とつなげる */
 export function LinkKnowledgeToQuoteButton({ quoteId, linkedIds }: { quoteId: string; linkedIds: string[] }) {

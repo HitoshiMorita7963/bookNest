@@ -21,6 +21,7 @@ import {
   type WorldInput,
 } from "@/lib/validators";
 import { describeSource, describeTarget, linkSourceInclude, linkTargetInclude } from "./creative";
+import { quoted } from "@/lib/quote-marks";
 
 /* ---------------- 作品 ---------------- */
 
@@ -299,7 +300,7 @@ export async function projectTimeline(db: Db, projectId: string): Promise<Timeli
       if (r.book.startedAt) once(`bs${r.book.id}`, { date: r.book.startedAt, icon: "📚", label: `『${r.book.title}』を読み始めた`, kind: "reading", href: `/books/${r.book.id}` });
       if (r.book.finishedAt) once(`bf${r.book.id}`, { date: r.book.finishedAt, icon: "📚", label: `『${r.book.title}』読了`, kind: "reading", href: `/books/${r.book.id}` });
     }
-    if (r.quote) once(`q${r.quote.id}`, { date: r.quote.createdAt, icon: "💬", label: `フレーズ保存「${r.quote.text.slice(0, 24)}${r.quote.text.length > 24 ? "…" : ""}」`, kind: "reading", href: `/quotes/${r.quote.id}` });
+    if (r.quote) once(`q${r.quote.id}`, { date: r.quote.createdAt, icon: "💬", label: `フレーズ保存${quoted(`${r.quote.text.slice(0, 24)}${r.quote.text.length > 24 ? "…" : ""}`)}`, kind: "reading", href: `/quotes/${r.quote.id}` });
     if (r.knowledge) once(`k${r.knowledge.id}`, { date: r.knowledge.createdAt, icon: "🧠", label: `知識「${r.knowledge.title}」を作成`, kind: "reading", href: `/knowledge/${r.knowledge.id}` });
     if (r.note) once(`n${r.note.id}`, { date: r.note.createdAt, icon: "💡", label: `創作メモ「${r.note.title}」を作成`, kind: "creative", href: `/creative/notes/${r.note.id}` });
     const what = r.book ? `『${r.book.title}』` : r.quote ? "フレーズ" : r.knowledge ? `知識「${r.knowledge.title}」` : r.note ? `メモ「${r.note.title}」` : "資料";

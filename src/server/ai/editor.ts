@@ -12,6 +12,7 @@ import { aiErrorMessage, getProvider, type ChatTurn } from "./provider";
 import { LIBRARIAN_TOOLS, newSources, runLibrarianTool } from "./tools";
 import { CREATIVE_TOOLS, remember, runCreativeTool, type CreativeRef, type CreativeRefs } from "./creative-tools";
 import { aiAvailable, extractKeywords } from "./librarian";
+import { quoted } from "@/lib/quote-marks";
 
 export interface EditorContext {
   chapterId?: string | null;
@@ -252,7 +253,7 @@ async function localEditorAnswer(db: Db, projectId: string, question: string, ct
   }
   if (keywords.length) lines.push(`\nキーワード：${keywords.map((k) => `「${k}」`).join(" ")}`);
   if (books.size) lines.push(`\n関連する本：\n${[...books.values()].slice(0, 10).map((t) => `- 『${t}』`).join("\n")}`);
-  if (quotes.size) lines.push(`\n関連するフレーズ：\n${[...quotes.values()].slice(0, 6).map((t) => `- 「${clip(t, 60)}」`).join("\n")}`);
+  if (quotes.size) lines.push(`\n関連するフレーズ：\n${[...quotes.values()].slice(0, 6).map((t) => `- ${quoted(clip(t, 60))}`).join("\n")}`);
   if (knowledge.size) lines.push(`\n関連する知識：\n${[...knowledge.values()].slice(0, 6).map((t) => `- ${t}`).join("\n")}`);
   if (refs.size) lines.push(`\n関連する創作データ：\n${[...refs.values()].slice(0, 10).map((r) => `- ${r.label}`).join("\n")}`);
   if (!books.size && !quotes.size && !knowledge.size && !refs.size) lines.push("\n該当するデータは見つかりませんでした。作品に参考資料を関連付けるか、別のキーワードでお試しください。");

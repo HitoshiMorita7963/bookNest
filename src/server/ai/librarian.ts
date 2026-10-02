@@ -10,6 +10,7 @@ import { bookListInclude } from "@/server/services/books";
 import { aiConfig } from "./config";
 import { aiErrorMessage, getProvider, type ChatTurn } from "./provider";
 import { LIBRARIAN_TOOLS, newSources, runLibrarianTool, type SourceRefs } from "./tools";
+import { quoted } from "@/lib/quote-marks";
 
 export interface AnswerSources {
   books: { id: string; title: string }[];
@@ -104,7 +105,7 @@ async function localAnswer(db: Db, question: string, reason: string): Promise<{ 
   }
   if (keywords.length) lines.push(`\nキーワード：${keywords.map((k) => `「${k}」`).join(" ")}`);
   if (books.size) lines.push(`\n関連する本：\n${[...books.values()].slice(0, 10).map((t) => `- 『${t}』`).join("\n")}`);
-  if (quotes.size) lines.push(`\n関連するフレーズ：\n${[...quotes.values()].slice(0, 5).map((t) => `- 「${t.length > 60 ? t.slice(0, 60) + "…" : t}」`).join("\n")}`);
+  if (quotes.size) lines.push(`\n関連するフレーズ：\n${[...quotes.values()].slice(0, 5).map((t) => `- ${quoted(t.length > 60 ? t.slice(0, 60) + "…" : t)}`).join("\n")}`);
   if (knowledge.size) lines.push(`\n関連する知識：\n${[...knowledge.values()].slice(0, 5).map((t) => `- ${t}`).join("\n")}`);
   if (!books.size && !quotes.size && !knowledge.size) lines.push("\n該当するデータは見つかりませんでした。別のキーワードでお試しください。");
   return {

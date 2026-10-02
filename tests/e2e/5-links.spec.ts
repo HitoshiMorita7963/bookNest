@@ -31,17 +31,17 @@ test("フレーズと知識をあとから関連付け・解除できる", async
 
   // 知識詳細にも「元になったフレーズ」として表示される → 解除
   await page.goto(knowledgeUrl);
-  await expect(page.getByText("「あとからつなぐフレーズ」")).toBeVisible();
+  await expect(page.getByText("“あとからつなぐフレーズ”")).toBeVisible();
   await page.getByRole("button", { name: "関連付けを解除" }).click();
   await expect(page.getByText("関連付けを解除しました")).toBeVisible();
-  await expect(page.getByText("「あとからつなぐフレーズ」")).toHaveCount(0);
+  await expect(page.getByText("“あとからつなぐフレーズ”")).toHaveCount(0);
 
   // 知識詳細 → フレーズを追加
   await page.getByRole("button", { name: "フレーズを追加" }).click();
   await dialog.getByLabel("フレーズ・本のタイトルで検索").fill("あとからつなぐ");
   await dialog.getByRole("button", { name: /あとからつなぐフレーズ/ }).click();
   await expect(page.getByText("フレーズを追加しました")).toBeVisible();
-  await expect(page.getByText("「あとからつなぐフレーズ」")).toBeVisible();
+  await expect(page.getByText("“あとからつなぐフレーズ”")).toBeVisible();
 
   await page.goto(quoteUrl);
   await expect(page.getByRole("link", { name: /あとからつなぐ知識/ })).toBeVisible();
