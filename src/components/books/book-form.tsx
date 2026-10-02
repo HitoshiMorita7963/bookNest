@@ -74,7 +74,7 @@ export function BookForm({
   /** ISBN 検索結果の確認時は詳細項目を折りたたむ */
   compact?: boolean;
   /** 新規登録時、この書誌情報からジャンル・タグを自動で入れる */
-  classifyFrom?: ClassifyInput & { authors?: string[]; isbn13?: string | null; volume?: string | null };
+  classifyFrom?: ClassifyInput & { authors?: string[]; isbn13?: string | null; volume?: string | null; pageCount?: number | null };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -96,6 +96,7 @@ export function BookForm({
   });
 
   const [classifying, setClassifying] = useState<"idle" | "running" | "ai" | "rules">("idle");
+  const [filledPages, setFilledPages] = useState(false);
   useEffect(() => {
     if (bookId || !classifyFrom) return;
     let cancelled = false;
@@ -103,7 +104,11 @@ export function BookForm({
     classifyBookAction(classifyFrom)
       .then((res) => {
         if (cancelled) return;
-        if (!res.ok || (!res.data.genre && !res.data.tags.length)) return setClassifying("idle");
+        if (!res.ok || (!res.data.genre && !res.data.tags.length && !res.data.pageCount)) return setClassifying("idle");
+        if (res.data.pageCount && !getFieldState("pageCount").isDirty && !getValues("pageCount")) {
+          setValue("pageCount", String(res.data.pageCount));
+          setFilledPages(true);
+        }
         // 提案を待つ間にユーザーが入力していたら上書きしない
         if (res.data.genre && !getFieldState("genre").isDirty && !getValues("genre")) setValue("genre", res.data.genre);
         if (res.data.tags.length && !getFieldState("tags").isDirty && !getValues("tags")) setValue("tags", res.data.tags.join("、"));
@@ -226,8 +231,8 @@ export function BookForm({
         <p className="-mt-3 flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
           {classifying === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5 text-primary" />}
           {classifying === "running"
-            ? "ジャンル・タグを提案しています…"
-            : `ジャンル・タグを${classifying === "ai" ? "AIが" : ""}自動で入力しました。自由に変更できます。`}
+            ? `ジャンル・タグ${classifyFrom?.pageCount ? "" : "・ページ数"}を調べています…（ページ数は国立国会図書館から取得するため、数十秒かかることがあります）`
+            : `ジャンル・タグ${filledPages ? "・ページ数" : ""}を${classifying === "ai" ? "AIが" : ""}自動で入力しました。自由に変更できます。`}
         </p>
       ) : null}
 

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { toUserError, type ActionResult } from "@/lib/errors";
 import type { BookInput } from "@/lib/validators";
 import * as books from "@/server/services/books";
-import { bookMetadataService, ndlProvider, type BookMetadata } from "@/server/services/metadata";
+import { bookMetadataService, googlePageCountByTitle, ndlLookup, type BookMetadata } from "@/server/services/metadata";
 import { classifyByRules, type Classification, type ClassifyInput } from "@/lib/classify";
 import { aiAvailable } from "@/server/ai/librarian";
 import { suggestGenreTags } from "@/server/ai/features";
@@ -116,8 +116,14 @@ export async function unlinkRelatedBookAction(a: string, b: string): Promise<Act
   }
 }
 
-/** 登録時にジャンル・タグを自動で提案する（AI が使えれば AI、使えなければキーワードと分類番号から推定） */
-export async function classifyBookAction(input: ClassifyInput & { authors?: string[]; isbn13?: string | null; volume?: string | null }): Promise<ActionResult<Classification & { by: "ai" | "rules" }>> {
+/**
+ * 登録画面で、検索結果に足りない情報を後から補う。
+ * - ジャンル・タグ（AI が使えれば AI、使えなければキーワードと分類番号から推定）
+ * - ページ数（楽天・openBD には無いことが多いので、国立国会図書館から取得。応答に10秒以上かかることがある）
+ */
+export async function classifyBookAction(
+  input: ClassifyInput & { authors?: string[]; isbn13?: string | null; volume?: string | null; pageCount?: number | null },
+): Promise<ActionResult<Classification & { by: "ai" | "rules"; pageCount: number | null }>> {
   try {
     const meta: ClassifyInput & { authors?: string[]; volume?: string | null } = {
       volume: input.volume?.slice(0, 30) ?? null,
@@ -130,26 +136,31 @@ export async function classifyBookAction(input: ClassifyInput & { authors?: stri
       subjects: (input.subjects ?? []).slice(0, 10).map((s) => String(s).slice(0, 100)),
       authors: (input.authors ?? []).slice(0, 10).map((s) => String(s).slice(0, 100)),
     };
-    if (!meta.title) return { ok: true, data: { genre: null, tags: [], by: "rules" } };
-    // 分類番号がなければ国立国会図書館から取得する
+    if (!meta.title) return { ok: true, data: { genre: null, tags: [], by: "rules", pageCount: null } };
+    // 分類番号・ページ数がなければ国立国会図書館から取得する（ISBN 検索時の問い合わせ結果があれば再利用される）
     const isbn = input.isbn13 ? parseIsbn(input.isbn13)?.isbn13 : null;
-    if (!meta.ndc && isbn) {
-      const ndl = await ndlProvider.lookupIsbn(isbn).catch(() => null);
+    let pageCount: number | null = null;
+    if ((!meta.ndc || !input.pageCount) && isbn) {
+      // サーバーの実行時間制限（60秒）に AI の処理と合わせて収まるよう、待つのは35秒まで
+      const ndl = await ndlLookup(isbn, 35_000).catch(() => null);
       if (ndl) {
+        pageCount = ndl.pageCount ?? null;
         meta.ndc = ndl.ndc ?? null;
         if (!meta.subjects?.length) meta.subjects = ndl.subjects ?? [];
         if (!meta.seriesTitle) meta.seriesTitle = ndl.seriesTitle ?? null;
       }
     }
+    // 国立国会図書館で取れなければ Google Books（ISBN が一致した版のみ）
+    if (!pageCount && !input.pageCount && isbn) pageCount = await googlePageCountByTitle(meta.title, isbn);
     const draft = classifyByRules(meta);
     if ((await aiAvailable(prisma)).ok) {
       try {
-        return { ok: true, data: { ...(await suggestGenreTags(meta, draft)), by: "ai" } };
+        return { ok: true, data: { ...(await suggestGenreTags(meta, draft)), by: "ai", pageCount } };
       } catch (e) {
         console.warn("[classify] AI failed, using rules:", (e as Error).message);
       }
     }
-    return { ok: true, data: { ...draft, by: "rules" } };
+    return { ok: true, data: { ...draft, by: "rules", pageCount } };
   } catch (e) {
     return toUserError(e);
   }
