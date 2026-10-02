@@ -4,6 +4,7 @@ import { creativeUsageOf } from "@/server/services/creative";
 import { SectionTitle } from "@/components/books/bits";
 import { CategoryBadge } from "./bits";
 import { UseInCreativeButton } from "./use-in-creative";
+import { UnlinkCreativeButton } from "./unlink-button";
 import { LINK_TARGET_LABEL, type LinkSourceKind } from "@/lib/constants";
 
 const ICON: Record<string, string> = { project: "✍️", character: "👤", world: "🌍", plot: "📋", chapter: "📖", scene: "🎬", note: "💡" };
@@ -41,6 +42,7 @@ export async function CreativeUsageSection({
                     </Link>
                     {it.purpose ? <span className="text-xs text-muted-foreground">（{it.purpose}）</span> : null}
                     {it.via ? <span className="text-xs text-muted-foreground">← 💡{it.via}</span> : null}
+                    {it.linkId ? <UnlinkCreativeButton linkId={it.linkId} label={it.label} className="ml-auto self-center" /> : null}
                   </li>
                 ))}
               </ul>
@@ -49,11 +51,12 @@ export async function CreativeUsageSection({
           {usage.notes.length ? (
             <ul className="space-y-1.5">
               {usage.notes.map((n) => (
-                <li key={n.id}>
-                  <Link href={`/creative/notes/${n.id}`} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm hover:bg-accent/50">
+                <li key={n.id} className="flex items-center gap-1 rounded-lg border bg-card pr-1 hover:bg-accent/50">
+                  <Link href={`/creative/notes/${n.id}`} className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-sm">
                     <span className="min-w-0 flex-1 truncate">💡 {n.title}</span>
                     <CategoryBadge category={n.category} />
                   </Link>
+                  <UnlinkCreativeButton linkId={n.linkId} label={n.title} />
                 </li>
               ))}
             </ul>

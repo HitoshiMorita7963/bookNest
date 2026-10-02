@@ -11,6 +11,7 @@ import { QuoteCard } from "@/components/quotes/quote-card";
 import { KnowledgeMenu, UnlinkKnowledgeButton } from "@/components/knowledge/knowledge-client";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
 import { ReadMore } from "@/components/ui/read-more";
+import { LinkQuoteToKnowledgeButton, UnlinkQuoteKnowledgeButton } from "@/components/knowledge/quote-knowledge-links";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -70,6 +71,25 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
         </section>
 
         <section>
+          <SectionTitle action={<LinkQuoteToKnowledgeButton knowledgeId={k.id} linkedIds={k.quotes.map((x) => x.quote.id)} />}>💬 元になったフレーズ</SectionTitle>
+          {k.quotes.length ? (
+            <div className="space-y-3">
+              {k.quotes.map(({ quote: q }) => (
+                <div key={q.id}>
+                  <QuoteCard quote={q} />
+                  <div className="mt-1 flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                    このフレーズとの関連付けを解除
+                    <UnlinkQuoteKnowledgeButton quoteId={q.id} knowledgeId={k.id} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">「フレーズを追加」から、この知識のきっかけになったフレーズを関連付けられます。</p>
+          )}
+        </section>
+
+        <section>
           <SectionTitle>🔗 つながる知識</SectionTitle>
           {links.length ? (
             <ul className="space-y-2">
@@ -89,18 +109,8 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
           )}
         </section>
 
-        <CreativeUsageSection source={{ kind: "knowledge", id: k.id }} defaultTitle={k.title} defaultContent={k.content} />
 
-        {k.quotes.length ? (
-          <section>
-            <SectionTitle>💬 元になったフレーズ</SectionTitle>
-            <div className="space-y-3">
-              {k.quotes.map(({ quote: q }) => (
-                <QuoteCard key={q.id} quote={q} />
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <CreativeUsageSection source={{ kind: "knowledge", id: k.id }} defaultTitle={k.title} defaultContent={k.content} />
 
         <p className="text-xs text-muted-foreground">
           作成 {format(k.createdAt, "yyyy/M/d")} ・ 更新 {format(k.updatedAt, "yyyy/M/d")}

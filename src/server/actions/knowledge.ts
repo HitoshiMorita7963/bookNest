@@ -60,6 +60,25 @@ export async function unlinkKnowledgeAction(a: string, b: string): Promise<Actio
   }
 }
 
+export async function linkQuoteKnowledgeAction(quoteId: string, knowledgeId: string): Promise<ActionResult> {
+  try {
+    await k.linkQuoteKnowledge(prisma, quoteId, knowledgeId);
+    syncSheetLater("knowledge", knowledgeId);
+    return done(undefined);
+  } catch (e) {
+    return toUserError(e);
+  }
+}
+
+export async function unlinkQuoteKnowledgeAction(quoteId: string, knowledgeId: string): Promise<ActionResult> {
+  try {
+    await k.unlinkQuoteKnowledge(prisma, quoteId, knowledgeId);
+    return done(undefined);
+  } catch (e) {
+    return toUserError(e);
+  }
+}
+
 export async function pickKnowledgeAction(q: string) {
   return k.pickKnowledge(prisma, q.slice(0, 100));
 }

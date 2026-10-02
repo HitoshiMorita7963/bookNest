@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "./helpers";
 import { createBook } from "@/server/services/books";
 import { createQuote } from "@/server/services/quotes";
-import { createKnowledge, deleteKnowledge, getKnowledge, getKnowledgeGraph, linkKnowledge, listKnowledge, unlinkKnowledge, updateKnowledge } from "@/server/services/knowledge";
+import { createKnowledge, deleteKnowledge, getKnowledge, getKnowledgeGraph, linkKnowledge, linkQuoteKnowledge, listKnowledge, unlinkKnowledge, unlinkQuoteKnowledge, updateKnowledge } from "@/server/services/knowledge";
 
 beforeEach(resetDb);
 
@@ -61,5 +61,21 @@ describe("Knowledge", () => {
     expect(g.edges.filter((e) => e.implicit)).toHaveLength(1);
     await deleteKnowledge(db, a.id);
     expect(await db.book.count()).toBe(1);
+  });
+});
+
+describe("linking quotes and knowledge later", () => {
+  it("links a quote (and its book) to knowledge, and unlinks only the quote", async () => {
+    const book = await createBook(db, { title: "あとから本" });
+    const q = await createQuote(db, { text: "あとからフレーズ", bookId: book.id });
+    const kn = await createKnowledge(db, { title: "あとから知識" });
+    await linkQuoteKnowledge(db, q.id, kn.id);
+    await linkQuoteKnowledge(db, q.id, kn.id); // 2回目も問題ない
+    expect(await db.quoteKnowledge.count({ where: { knowledgeId: kn.id } })).toBe(1);
+    expect(await db.bookKnowledge.count({ where: { knowledgeId: kn.id, bookId: book.id } })).toBe(1);
+    await unlinkQuoteKnowledge(db, q.id, kn.id);
+    expect(await db.quoteKnowledge.count({ where: { knowledgeId: kn.id } })).toBe(0);
+    expect(await db.bookKnowledge.count({ where: { knowledgeId: kn.id } })).toBe(1);
+    await expect(linkQuoteKnowledge(db, "missing", kn.id)).rejects.toThrow();
   });
 });

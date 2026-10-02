@@ -81,6 +81,30 @@ export async function unlinkKnowledge(db: Db, a: string, b: string) {
   await db.knowledgeLink.deleteMany({ where: { OR: [{ fromId: a, toId: b }, { fromId: b, toId: a }] } });
 }
 
+/**
+ * フレーズと知識をあとから関連付ける。フレーズの本も知識の「関連書籍」に加える。
+ */
+export async function linkQuoteKnowledge(db: Db, quoteId: string, knowledgeId: string) {
+  const [quote, k] = await Promise.all([
+    db.quote.findUnique({ where: { id: quoteId }, select: { bookId: true } }),
+    db.knowledgeNote.findUnique({ where: { id: knowledgeId }, select: { id: true } }),
+  ]);
+  if (!quote) throw new NotFoundError("フレーズ");
+  if (!k) throw new NotFoundError("知識");
+  await db.$transaction(async (tx) => {
+    await tx.quoteKnowledge.upsert({ where: { quoteId_knowledgeId: { quoteId, knowledgeId } }, create: { quoteId, knowledgeId }, update: {} });
+    if (quote.bookId) {
+      await tx.bookKnowledge.upsert({ where: { bookId_knowledgeId: { bookId: quote.bookId, knowledgeId } }, create: { bookId: quote.bookId, knowledgeId }, update: {} });
+    }
+    await tx.knowledgeNote.update({ where: { id: knowledgeId }, data: { updatedAt: new Date() } });
+  });
+}
+
+/** フレーズと知識の関連付けを解除する（関連書籍はそのまま残す） */
+export async function unlinkQuoteKnowledge(db: Db, quoteId: string, knowledgeId: string) {
+  await db.quoteKnowledge.deleteMany({ where: { quoteId, knowledgeId } });
+}
+
 export interface KnowledgeQuery {
   q?: string;
   tag?: string;
