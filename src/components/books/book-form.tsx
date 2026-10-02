@@ -13,6 +13,7 @@ import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { BookCover } from "./book-cover";
 import { BOOK_STATUSES, DEFAULT_GENRES, STATUS_LABEL } from "@/lib/constants";
 import { parseIsbn } from "@/lib/isbn";
+import { deriveSeries } from "@/lib/series";
 import { splitList } from "@/lib/utils";
 import { classifyBookAction, createBookAction, updateBookAction } from "@/server/actions/books";
 import type { ClassifyInput } from "@/lib/classify";
@@ -73,7 +74,7 @@ export function BookForm({
   /** ISBN 検索結果の確認時は詳細項目を折りたたむ */
   compact?: boolean;
   /** 新規登録時、この書誌情報からジャンル・タグを自動で入れる */
-  classifyFrom?: ClassifyInput & { authors?: string[]; isbn13?: string | null };
+  classifyFrom?: ClassifyInput & { authors?: string[]; isbn13?: string | null; volume?: string | null };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -106,6 +107,11 @@ export function BookForm({
         // 提案を待つ間にユーザーが入力していたら上書きしない
         if (res.data.genre && !getFieldState("genre").isDirty && !getValues("genre")) setValue("genre", res.data.genre);
         if (res.data.tags.length && !getFieldState("tags").isDirty && !getValues("tags")) setValue("tags", res.data.tags.join("、"));
+        // シリーズはタイトルから判定できなかったときだけ AI の判定を使う
+        if (res.data.seriesTitle && !getValues("seriesTitle") && !getFieldState("seriesTitle").isDirty) {
+          setValue("seriesTitle", res.data.seriesTitle);
+          if (res.data.seriesNumber && !getValues("seriesNumber")) setValue("seriesNumber", String(res.data.seriesNumber));
+        }
         setClassifying(res.data.by);
       })
       .catch(() => !cancelled && setClassifying("idle"));
@@ -225,9 +231,18 @@ export function BookForm({
         </p>
       ) : null}
 
+      <div className="grid grid-cols-[1fr_6rem] gap-4">
+        <Field label="シリーズ" htmlFor="seriesTitle" hint="同じシリーズの本がまとまります">
+          <Input id="seriesTitle" {...register("seriesTitle")} />
+        </Field>
+        <Field label="巻" htmlFor="seriesNumber" error={errors.seriesNumber?.message}>
+          <Input id="seriesNumber" inputMode="decimal" {...register("seriesNumber")} />
+        </Field>
+      </div>
+
       {!showMore ? (
         <Button type="button" variant="ghost" className="w-full" onClick={() => setShowMore(true)}>
-          詳細項目を表示（出版社・ISBN・シリーズなど）
+          詳細項目を表示（出版社・ISBN・内容紹介など）
         </Button>
       ) : (
         <div className="space-y-4">
@@ -248,14 +263,6 @@ export function BookForm({
           <Field label="ISBN" htmlFor="isbn" error={errors.isbn?.message}>
             <Input id="isbn" inputMode="numeric" {...register("isbn")} aria-invalid={!!errors.isbn} />
           </Field>
-          <div className="grid grid-cols-[1fr_6rem] gap-4">
-            <Field label="シリーズ" htmlFor="seriesTitle">
-              <Input id="seriesTitle" {...register("seriesTitle")} />
-            </Field>
-            <Field label="巻" htmlFor="seriesNumber" error={errors.seriesNumber?.message}>
-              <Input id="seriesNumber" inputMode="decimal" {...register("seriesNumber")} />
-            </Field>
-          </div>
           <Field label="購入日・入手日" htmlFor="acquiredAt" hint="積読期間の計算に使います">
             <Input id="acquiredAt" type="date" {...register("acquiredAt")} />
           </Field>
@@ -299,7 +306,9 @@ export function metadataToForm(m: {
   isbn13?: string | null;
   description?: string | null;
   seriesTitle?: string | null;
+  volume?: string | null;
 }): Partial<BookFormValues> {
+  const series = deriveSeries(m);
   return {
     title: m.title,
     titleKana: m.titleKana ?? "",
@@ -311,6 +320,7 @@ export function metadataToForm(m: {
     coverImage: m.coverImage ?? "",
     isbn: m.isbn13 ?? "",
     description: m.description ?? "",
-    seriesTitle: m.seriesTitle && !/文庫|新書|選書|叢書|ライブラリー|ブックス$/.test(m.seriesTitle) ? m.seriesTitle : "",
+    seriesTitle: series.seriesTitle ?? "",
+    seriesNumber: series.seriesNumber !== null ? String(series.seriesNumber) : "",
   };
 }

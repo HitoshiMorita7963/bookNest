@@ -7,6 +7,7 @@
  *  - Google Books（キー任意: GOOGLE_BOOKS_API_KEY）
  */
 import { parseIsbn } from "@/lib/isbn";
+import { parseVolume } from "@/lib/series";
 
 export interface BookMetadata {
   title: string;
@@ -22,6 +23,8 @@ export interface BookMetadata {
   description?: string | null;
   language?: string | null;
   seriesTitle?: string | null;
+  /** 巻次（「上」「巻一」「3」など。シリーズの巻数の判定に使う） */
+  volume?: string | null;
   /** 日本十進分類（国立国会図書館。ジャンル推定に使う） */
   ndc?: string | null;
   /** 件名（国立国会図書館） */
@@ -186,7 +189,9 @@ export const openBdProvider: MetadataProvider = {
     const contributors = dd?.Contributor?.map((c) => c.PersonName?.content).filter(Boolean) as string[] | undefined;
     const authors = contributors?.length ? contributors.map(cleanAuthor) : splitAuthors(s.author);
     return {
-      title: [s.title, s.volume].filter(Boolean).join(" "),
+      // summary.volume には文庫の整理番号（例「な31-3」）が入っていることがあるので、巻表記のときだけタイトルに付ける
+      title: [s.title, parseVolume(s.volume) !== null ? s.volume : null].filter(Boolean).join(" "),
+      volume: parseVolume(s.volume) !== null ? s.volume : null,
       titleKana: dd?.TitleDetail?.TitleElement?.TitleText?.collationkey ?? null,
       subtitle: dd?.TitleDetail?.TitleElement?.Subtitle?.content ?? null,
       authors: Array.from(new Set(authors)),
@@ -258,6 +263,7 @@ export const ndlProvider: MetadataProvider = {
       isbn13,
       description: null,
       seriesTitle: xmlTag(item, "dcndl:seriesTitle")[0] ?? null,
+      volume: xmlTag(item, "dcndl:volume")[0] || null,
       ndc: ndcOf(items),
       subjects: Array.from(new Set(items.flatMap((it) => xmlTag(it, "dc:subject")).filter((s) => !/^[\dA-Z]/.test(s)))).slice(0, 8),
       source: "国立国会図書館",
