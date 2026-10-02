@@ -13,6 +13,7 @@ import { AiQuoteAnalysis } from "@/components/ai/ai-quote-analysis";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
 import { ReadMore } from "@/components/ui/read-more";
 import { LinkKnowledgeToQuoteButton, UnlinkQuoteKnowledgeButton } from "@/components/knowledge/quote-knowledge-links";
+import { quoted } from "@/lib/quote-marks";
 
 export const metadata = { title: "フレーズ" };
 
@@ -25,7 +26,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
     <div className="mx-auto max-w-2xl">
       <PageHeader title="フレーズ" back actions={<QuoteMenu id={q.id} isFavorite={q.isFavorite} text={q.text} />} />
       <article className="space-y-6">
-        <blockquote className="quote-text rounded-2xl border bg-card p-5 text-lg md:p-7 md:text-xl">「{q.text}」</blockquote>
+        <blockquote className="quote-text rounded-2xl border bg-card p-5 text-lg md:p-7 md:text-xl">{quoted(q.text)}</blockquote>
         {q.book ? (
           <Link href={`/books/${q.book.id}`} className="flex items-center gap-3 rounded-xl border bg-card p-3 hover:bg-accent/40">
             <div className="w-11 shrink-0">
@@ -91,7 +92,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         </section>
 
 
-        <CreativeUsageSection source={{ kind: "quote", id: q.id }} defaultTitle={q.text.slice(0, 30)} defaultContent={`「${q.text}」${q.book ? `
+        <CreativeUsageSection source={{ kind: "quote", id: q.id }} defaultTitle={q.text.slice(0, 30)} defaultContent={`${quoted(q.text)}${q.book ? `
 ——『${q.book.title}』${q.pageNumber ? ` ${q.pageNumber}` : ""}` : ""}`} />
 
         <AiQuoteAnalysis quoteId={q.id} quoteText={q.text} book={q.book ? { id: q.book.id, title: q.book.title } : null} />

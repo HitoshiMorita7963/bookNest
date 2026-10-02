@@ -129,7 +129,7 @@ test("テスト4：作品 → AI編集者 → 関連する読書資料を探す 
   await expect(page.getByText("参照したBookNestデータ")).toBeVisible({ timeout: 30_000 });
   const refs = page.locator("div", { has: page.getByText("参照したBookNestデータ") }).last();
   await expect(refs.getByRole("link", { name: /📚 『灯台へ（E2E）』/ })).toBeVisible();
-  await expect(refs.getByRole("link", { name: /💬 「人は誰でも/ })).toBeVisible();
+  await expect(refs.getByRole("link", { name: /💬 “人は誰でも/ })).toBeVisible();
   await expect(refs.getByRole("link", { name: /🧠 フレネルレンズの仕組み/ })).toBeVisible();
   // 参照元をタップすると元データへ移動できる
   await refs.getByRole("link", { name: /🧠 フレネルレンズの仕組み/ }).click();

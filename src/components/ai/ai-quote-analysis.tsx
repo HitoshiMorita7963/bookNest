@@ -11,6 +11,7 @@ import { KnowledgeForm } from "@/components/knowledge/knowledge-form";
 import { analyzeQuoteAction, applyQuoteSuggestionAction } from "@/server/actions/ai";
 import type { QuoteAnalysisResult } from "@/server/ai/features";
 import { truncate } from "@/lib/utils";
+import { quoted } from "@/lib/quote-marks";
 
 /** AI フレーズ分析：提案は「AI提案」として表示し、ユーザーが選んだものだけ保存する */
 export function AiQuoteAnalysis({ quoteId, quoteText, book }: { quoteId: string; quoteText: string; book: { id: string; title: string } | null }) {
@@ -107,7 +108,7 @@ export function AiQuoteAnalysis({ quoteId, quoteText, book }: { quoteId: string;
             {result.relatedQuotes.map((q) => (
               <li key={q.id}>
                 <Link href={`/quotes/${q.id}`} className="block rounded-lg bg-card p-2 text-sm hover:bg-accent">
-                  「{truncate(q.text, 60)}」{q.book ? <span className="text-xs text-muted-foreground"> 『{q.book}』</span> : null}
+                  {quoted(truncate(q.text, 60))}{q.book ? <span className="text-xs text-muted-foreground"> 『{q.book}』</span> : null}
                 </Link>
               </li>
             ))}

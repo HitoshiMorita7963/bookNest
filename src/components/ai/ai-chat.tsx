@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SafeMarkdown } from "./safe-markdown";
 import { askLibrarianAction } from "@/server/actions/ai";
 import { cn, truncate } from "@/lib/utils";
+import { quoted } from "@/lib/quote-marks";
 
 export interface ChatMessage {
   id: string;
@@ -178,7 +179,7 @@ function Bubble({ m }: { m: ChatMessage }) {
               {s!.quotes.slice(0, 5).map((q) => (
                 <li key={q.id}>
                   <Link href={`/quotes/${q.id}`} className="flex items-start gap-1.5 hover:underline">
-                    <MessageSquareQuote className="mt-0.5 size-3.5 shrink-0 text-primary" />「{truncate(q.text, 40)}」
+                    <MessageSquareQuote className="mt-0.5 size-3.5 shrink-0 text-primary" />{quoted(truncate(q.text, 40))}
                   </Link>
                 </li>
               ))}

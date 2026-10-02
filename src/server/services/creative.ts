@@ -8,6 +8,7 @@ import { AppError, NotFoundError } from "@/lib/errors";
 import { creativeNoteInputSchema, linkInputSchema, type CreativeNoteInput, type LinkInput } from "@/lib/validators";
 import { CREATIVE_CATEGORY_LABEL, LINK_TARGET_LABEL, NOTE_STATUSES, type CreativeCategory, type LinkSourceKind, type LinkTargetKind } from "@/lib/constants";
 import { cleanupOrphans, upsertTags } from "./books";
+import { quoted } from "@/lib/quote-marks";
 
 type Tx = Prisma.TransactionClient | Db;
 
@@ -245,7 +246,7 @@ export function describeTarget(l: TargetLinkRow): { kind: LinkTargetKind; label:
 
 export function describeSource(l: SourceLinkRow): { kind: LinkSourceKind; label: string; sub?: string; href: string } {
   if (l.book) return { kind: "book", label: `『${l.book.title}』`, href: `/books/${l.book.id}` };
-  if (l.quote) return { kind: "quote", label: `「${l.quote.text.slice(0, 60)}${l.quote.text.length > 60 ? "…" : ""}」`, sub: l.quote.book ? `『${l.quote.book.title}』` : undefined, href: `/quotes/${l.quote.id}` };
+  if (l.quote) return { kind: "quote", label: quoted(`${l.quote.text.slice(0, 60)}${l.quote.text.length > 60 ? "…" : ""}`), sub: l.quote.book ? `『${l.quote.book.title}』` : undefined, href: `/quotes/${l.quote.id}` };
   if (l.knowledge) return { kind: "knowledge", label: l.knowledge.title, href: `/knowledge/${l.knowledge.id}` };
   const cat = (l.note?.category ?? "OTHER") as CreativeCategory;
   return { kind: "note", label: l.note?.title ?? "創作メモ", sub: CREATIVE_CATEGORY_LABEL[cat], href: `/creative/notes/${l.note?.id}` };

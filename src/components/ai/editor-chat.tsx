@@ -13,6 +13,7 @@ import { applyProposalAction, askEditorAction } from "@/server/actions/ai";
 import type { EditorSources, Proposal } from "@/server/ai/editor";
 import { CREATIVE_CATEGORY_LABEL, type CreativeCategory } from "@/lib/constants";
 import { truncate } from "@/lib/utils";
+import { quoted } from "@/lib/quote-marks";
 
 export interface EditorMessage {
   id: string;
@@ -288,7 +289,7 @@ function EditorBubble({ m, projectId }: { m: EditorMessage; projectId: string })
               {s!.quotes.slice(0, 6).map((q) => (
                 <li key={q.id}>
                   <Link href={`/quotes/${q.id}`} className="hover:underline">
-                    💬 「{truncate(q.text, 40)}」
+                    💬 {quoted(truncate(q.text, 40))}
                   </Link>
                 </li>
               ))}

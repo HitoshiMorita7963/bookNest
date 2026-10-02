@@ -10,6 +10,7 @@ import { Sheet, SheetContent } from "@/components/ui/overlays";
 import { BookPickerSheet } from "@/components/books/book-picker";
 import { createKnowledgeAction, pickQuotesAction, updateKnowledgeAction } from "@/server/actions/knowledge";
 import { splitList, truncate } from "@/lib/utils";
+import { quoted } from "@/lib/quote-marks";
 
 export interface KnowledgeFormValues {
   title: string;
@@ -70,7 +71,7 @@ export function KnowledgeForm({
           <p className="text-sm font-medium">元にしたフレーズ</p>
           {v.quotes.map((q) => (
             <div key={q.id} className="flex items-start gap-2 rounded-xl bg-muted/60 p-3">
-              <p className="quote-text flex-1 text-sm">「{truncate(q.text, 120)}」</p>
+              <p className="quote-text flex-1 text-sm">{quoted(truncate(q.text, 120))}</p>
               <button type="button" aria-label="フレーズの紐付けを外す" onClick={() => setV({ ...v, quotes: v.quotes.filter((x) => x.id !== q.id) })} className="flex size-8 items-center justify-center rounded-full hover:bg-accent">
                 <X className="size-4" />
               </button>
@@ -182,7 +183,7 @@ function QuotePickerSheet({
               <li key={it.id}>
                 <button type="button" onClick={() => onPick({ id: it.id, text: it.text })} className="flex w-full items-start gap-2 py-3 text-left">
                   <span className="flex-1">
-                    <span className="quote-text line-clamp-3 text-sm">「{it.text}」</span>
+                    <span className="quote-text line-clamp-3 text-sm">{quoted(it.text)}</span>
                     {it.book ? <span className="mt-0.5 block text-xs text-muted-foreground">『{it.book.title}』</span> : null}
                   </span>
                   {selectedIds.includes(it.id) ? <span className="text-xs font-semibold text-primary">選択中</span> : null}
