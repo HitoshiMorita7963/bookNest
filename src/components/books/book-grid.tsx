@@ -19,7 +19,7 @@ export function BookGrid({ books, className }: { books: BookCardData[]; classNam
   return (
     <ul
       className={cn(
-        "grid grid-cols-3 gap-x-3 gap-y-5 min-[500px]:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8",
+        "grid grid-cols-5 gap-x-2 gap-y-4 md:grid-cols-6 md:gap-x-3 md:gap-y-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10",
         className,
       )}
     >
@@ -27,17 +27,17 @@ export function BookGrid({ books, className }: { books: BookCardData[]; classNam
         <li key={b.id}>
           <Link href={`/books/${b.id}`} className="group block rounded-lg focus-visible:outline-offset-4">
             <div className="transition-transform duration-200 group-hover:-translate-y-0.5">
-              <BookCover src={b.coverImage} title={b.title} author={authorNames(b, 1)} priority={i < 6} />
+              <BookCover src={b.coverImage} title={b.title} author={authorNames(b, 1)} size="sm" priority={i < 10} />
             </div>
             {b.status === "READING" && b.pageCount ? (
-              <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted" aria-label={`進捗 ${progressPercent(b.currentPage, b.pageCount)}%`}>
+              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted" aria-label={`進捗 ${progressPercent(b.currentPage, b.pageCount)}%`}>
                 <div className="h-full bg-primary" style={{ width: `${progressPercent(b.currentPage, b.pageCount)}%` }} />
               </div>
             ) : null}
-            <p className="mt-2 line-clamp-2 text-sm leading-snug font-medium">{b.title}</p>
-            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{authorNames(b, 2) || "著者不明"}</p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <StatusBadge status={b.status} />
+            <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug font-medium md:text-sm">{b.title}</p>
+            <p className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground md:text-xs">{authorNames(b, 2) || "著者不明"}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              <StatusBadge status={b.status} className="px-1.5 text-[10px] md:px-2 md:text-[11px]" />
               <RatingStars value={b.rating} />
             </div>
           </Link>

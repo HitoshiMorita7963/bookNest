@@ -5,10 +5,10 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * 長い文章を指定行数（既定5行）で折りたたみ、「もっと見る」で全文を表示する。
+ * 長い文章を指定行数（既定3行）で折りたたみ、「もっと見る」で全文を表示する。
  * 収まる長さのときはボタンを出さない。
  */
-export function ReadMore({ children, lines = 5, className, as = "div" }: { children: ReactNode; lines?: number; className?: string; as?: "div" | "p" | "dd" | "blockquote" }) {
+export function ReadMore({ children, lines = 3, className, as = "div" }: { children: ReactNode; lines?: number; className?: string; as?: "div" | "p" | "dd" | "blockquote" }) {
   const ref = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const [overflow, setOverflow] = useState(false);

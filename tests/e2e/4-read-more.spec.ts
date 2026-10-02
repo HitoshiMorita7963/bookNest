@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const LONG = Array.from({ length: 9 }, (_, i) => `長いフレーズの${i + 1}行目です。`).join("\n");
 
-test("5行を超えるフレーズは「もっと見る」で全文を開ける", async ({ page }) => {
+test("3行を超えるフレーズは「もっと見る」で全文を開ける", async ({ page }) => {
   await page.goto("/quotes/new");
   await page.getByRole("button", { name: "テキストを入力" }).click();
   await page.getByLabel("フレーズ").fill(LONG);
