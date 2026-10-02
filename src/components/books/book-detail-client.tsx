@@ -25,6 +25,7 @@ import { deleteRecordAction, deleteSessionAction } from "@/server/actions/readin
 import { RecordSheet } from "@/components/reading/reading-sheets";
 import { RatingStars } from "./bits";
 import { BookPickerSheet } from "./book-picker";
+import { ReadMore } from "@/components/ui/read-more";
 
 export function BookMenu({ bookId, title, shelfIds }: { bookId: string; title: string; shelfIds: string[] }) {
   const router = useRouter();
@@ -270,7 +271,9 @@ export function RecordCard({
           {sections.map(([label, value]) => (
             <div key={label}>
               <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-              <dd className="prose-note mt-1 text-[15px] leading-relaxed">{value}</dd>
+              <ReadMore as="dd" className="prose-note mt-1 text-[15px] leading-relaxed">
+                {value}
+              </ReadMore>
             </div>
           ))}
         </dl>

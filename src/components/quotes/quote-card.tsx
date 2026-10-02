@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Heart } from "lucide-react";
 import { TagChip } from "@/components/books/bits";
 import { QuoteCardMenu } from "./quote-menu";
+import { ReadMore } from "@/components/ui/read-more";
 
 export interface QuoteCardData {
   id: string;
@@ -26,9 +27,11 @@ export function QuoteCard({ quote, highlight }: { quote: QuoteCardData; highligh
       <div className="absolute top-2 right-2 z-10">
         <QuoteCardMenu id={quote.id} />
       </div>
-      <blockquote className="quote-text relative border-l-2 border-highlight pr-8 pl-3 text-[16px]">
-        「{highlight ? <Highlighted text={quote.text} q={highlight} /> : quote.text}」
-      </blockquote>
+      <div className="relative border-l-2 border-highlight pr-8 pl-3">
+        <ReadMore as="blockquote" className="quote-text text-[16px]">
+          「{highlight ? <Highlighted text={quote.text} q={highlight} /> : quote.text}」
+        </ReadMore>
+      </div>
       <div className="relative mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
         {quote.book ? (
           <Link href={`/books/${quote.book.id}`} className="relative z-10 font-medium text-foreground/80 hover:underline">
@@ -50,7 +53,9 @@ export function QuoteCard({ quote, highlight }: { quote: QuoteCardData; highligh
       {quote.note ? (
         <div className="relative mt-3 rounded-xl bg-muted/60 p-3 text-sm">
           <p className="text-xs font-medium text-muted-foreground">自分のメモ</p>
-          <p className="prose-note mt-0.5 line-clamp-4">{quote.note}</p>
+          <ReadMore as="p" className="prose-note mt-0.5">
+            {quote.note}
+          </ReadMore>
         </div>
       ) : null}
     </article>

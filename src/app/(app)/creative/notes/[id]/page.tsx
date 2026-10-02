@@ -8,6 +8,7 @@ import { SectionTitle, TagChip } from "@/components/books/bits";
 import { CategoryBadge, NoteStatusBadge } from "@/components/creative/bits";
 import { AddToProjectButton, LinkList, NoteMenu, NoteStatusSwitcher } from "@/components/creative/note-client";
 import { LINK_TARGET_LABEL } from "@/lib/constants";
+import { ReadMore } from "@/components/ui/read-more";
 
 export const metadata = { title: "創作メモ" };
 
@@ -53,7 +54,11 @@ export default async function CreativeNotePage({ params }: { params: Promise<{ i
             </div>
           ) : null}
         </header>
-        {n.content ? <div className="prose-note rounded-2xl border bg-card p-4 text-[16px] leading-relaxed">{n.content}</div> : null}
+        {n.content ? (
+          <div className="rounded-2xl border bg-card p-4">
+            <ReadMore className="prose-note text-[16px] leading-relaxed">{n.content}</ReadMore>
+          </div>
+        ) : null}
 
         <NoteStatusSwitcher id={n.id} status={n.status} />
 

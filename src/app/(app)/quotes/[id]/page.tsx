@@ -11,6 +11,7 @@ import { DeleteQuoteButton, QuoteMenu } from "@/components/quotes/quote-menu";
 import { Button } from "@/components/ui/button";
 import { AiQuoteAnalysis } from "@/components/ai/ai-quote-analysis";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
+import { ReadMore } from "@/components/ui/read-more";
 
 export const metadata = { title: "フレーズ" };
 
@@ -50,7 +51,9 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         {q.note ? (
           <section className="rounded-xl bg-muted/60 p-4">
             <p className="text-xs font-medium text-muted-foreground">📝 自分のメモ</p>
-            <p className="prose-note mt-1 text-[15px]">{q.note}</p>
+            <ReadMore as="p" className="prose-note mt-1 text-[15px]">
+              {q.note}
+            </ReadMore>
           </section>
         ) : null}
 
