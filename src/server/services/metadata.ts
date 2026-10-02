@@ -237,38 +237,84 @@ function ndcOf(items: string[]): string | null {
   return null;
 }
 
+/**
+ * 国立国会図書館サーチは応答に10秒以上かかることがあり、短時間に続けて問い合わせると 429 になる。
+ * 同じ ISBN の問い合わせは1回にまとめて結果を10分間使い回し、429 のときは少し待って2回まで再試行する。
+ */
+const NDL_TTL_MS = 10 * 60_000;
+const ndlCache = new Map<string, { at: number; promise: Promise<string | null> }>();
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function ndlXml(isbn13: string): Promise<string | null> {
+  const hit = ndlCache.get(isbn13);
+  if (hit && Date.now() - hit.at < NDL_TTL_MS) return hit.promise;
+  const promise = (async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 50_000);
+      try {
+        const res = await fetch(`https://ndlsearch.ndl.go.jp/api/opensearch?isbn=${isbn13}&cnt=5`, { signal: ctrl.signal, headers: { "User-Agent": "BookNest/1.0" } });
+        if (res.status === 429 && attempt < 2) {
+          await sleep(3000 * (attempt + 1));
+          continue;
+        }
+        return res.ok ? await res.text() : null;
+      } finally {
+        clearTimeout(t);
+      }
+    }
+    return null;
+  })().catch(() => null);
+  if (ndlCache.size > 200) ndlCache.delete(ndlCache.keys().next().value!);
+  ndlCache.set(isbn13, { at: Date.now(), promise });
+  // 失敗したときは次の呼び出しでやり直せるようにする
+  void promise.then((xml) => {
+    if (xml === null) ndlCache.delete(isbn13);
+  });
+  return promise;
+}
+
+function parseNdl(xml: string, isbn13: string): BookMetadata | null {
+  const items = xml.split("<item>").slice(1);
+  const item = items[0];
+  if (!item) return null;
+  const title = xmlTag(item, "dc:title")[0] ?? xmlTag(item, "title")[0];
+  if (!title) return null;
+  const authors = xmlTag(item, "dc:creator").map(cleanAuthor).filter(Boolean);
+  const titleKana = xmlTag(item, "dcndl:titleTranscription")[0] ?? null;
+  const extent = items.map((it) => xmlTag(it, "dc:extent")[0]).find(Boolean) ?? "";
+  const pageMatch = extent.match(/(\d+)\s*p/);
+  return {
+    title,
+    titleKana,
+    authors: Array.from(new Set(authors)),
+    publisher: xmlTag(item, "dc:publisher")[0] ?? null,
+    publishedAt: normalizeDate(xmlTag(item, "dcterms:issued")[0] ?? xmlTag(item, "dc:date")[0]),
+    pageCount: pageMatch ? Number(pageMatch[1]) : null,
+    coverImage: null,
+    isbn13,
+    description: null,
+    seriesTitle: xmlTag(item, "dcndl:seriesTitle")[0] ?? null,
+    volume: xmlTag(item, "dcndl:volume")[0] || null,
+    ndc: ndcOf(items),
+    subjects: Array.from(new Set(items.flatMap((it) => xmlTag(it, "dc:subject")).filter((s) => !/^[\dA-Z]/.test(s)))).slice(0, 8),
+    source: "国立国会図書館",
+  };
+}
+
+/**
+ * 国立国会図書館から書誌（ページ数・分類など）を取得する。waitMs までに応答がなければ null を返すが、
+ * 問い合わせ自体は続くので、あとで同じ ISBN を呼ぶとその結果を使える。
+ */
+export async function ndlLookup(isbn13: string, waitMs = 45_000): Promise<BookMetadata | null> {
+  const xml = await Promise.race([ndlXml(isbn13), sleep(waitMs).then(() => null)]);
+  return xml ? parseNdl(xml, isbn13) : null;
+}
+
 export const ndlProvider: MetadataProvider = {
   name: "NDL",
-  async lookupIsbn(isbn13) {
-    const res = await fetchWithTimeout(`https://ndlsearch.ndl.go.jp/api/opensearch?isbn=${isbn13}&cnt=5`);
-    if (!res.ok) return null;
-    const xml = await res.text();
-    const items = xml.split("<item>").slice(1);
-    const item = items[0];
-    if (!item) return null;
-    const title = xmlTag(item, "dc:title")[0] ?? xmlTag(item, "title")[0];
-    if (!title) return null;
-    const authors = xmlTag(item, "dc:creator").map(cleanAuthor).filter(Boolean);
-    const titleKana = xmlTag(item, "dcndl:titleTranscription")[0] ?? null;
-    const extent = items.map((it) => xmlTag(it, "dc:extent")[0]).find(Boolean) ?? "";
-    const pageMatch = extent.match(/(\d+)\s*p/);
-    return {
-      title,
-      titleKana,
-      authors: Array.from(new Set(authors)),
-      publisher: xmlTag(item, "dc:publisher")[0] ?? null,
-      publishedAt: normalizeDate(xmlTag(item, "dcterms:issued")[0] ?? xmlTag(item, "dc:date")[0]),
-      pageCount: pageMatch ? Number(pageMatch[1]) : null,
-      coverImage: null,
-      isbn13,
-      description: null,
-      seriesTitle: xmlTag(item, "dcndl:seriesTitle")[0] ?? null,
-      volume: xmlTag(item, "dcndl:volume")[0] || null,
-      ndc: ndcOf(items),
-      subjects: Array.from(new Set(items.flatMap((it) => xmlTag(it, "dc:subject")).filter((s) => !/^[\dA-Z]/.test(s)))).slice(0, 8),
-      source: "国立国会図書館",
-    };
-  },
+  // 登録画面の検索を待たせないよう短めに待つ（ページ数などは登録画面で後から補う）
+  lookupIsbn: (isbn13) => ndlLookup(isbn13, TIMEOUT_MS),
 };
 
 // ---------- Google Books ----------
@@ -408,6 +454,11 @@ export class BookMetadataService {
   }
 }
 
+/** Google Books のタイトル検索用に、副題・巻表記・文庫の整理番号（例「せ8-3」）を外す */
+function searchTitle(title: string): string {
+  return title.split(/\s+[:：]\s*|[（(]/)[0].replace(/\s+\S{1,3}\d+-\d+$/, "").trim() || title;
+}
+
 const squash = (s: string) => s.normalize("NFKC").replace(/[\s・、。,.:：!！?？「」『』]/g, "").toLowerCase();
 
 /**
@@ -415,8 +466,7 @@ const squash = (s: string) => s.normalize("NFKC").replace(/[\s・、。,.:：!�
  * ISBN が一致したものを優先し、なければ「タイトルが完全に一致し、著者も一致する」もの（電子書籍版など）を使う。
  */
 async function googleCoverByTitle(title: string, isbn13: string, authors: string[] = []): Promise<string | null> {
-  // 副題・文庫の整理番号（例「せ8-3」）を外して検索する
-  const t = title.split(/\s+[:：]\s*|[（(]/)[0].replace(/\s+\S{1,3}\d+-\d+$/, "").trim() || title;
+  const t = searchTitle(title);
   try {
     const res = await fetchWithTimeout(googleUrl(`intitle:${t}`, 20));
     if (!res.ok) return null;
@@ -435,6 +485,21 @@ async function googleCoverByTitle(title: string, isbn13: string, authors: string
     /* 見つからなければ諦める */
   }
   return null;
+}
+
+/** Google Books をタイトルで探し、ISBN が一致した版のページ数を返す（国立国会図書館で取れなかったときの補助） */
+export async function googlePageCountByTitle(title: string, isbn13: string): Promise<number | null> {
+  const t = searchTitle(title);
+  try {
+    const res = await fetchWithTimeout(googleUrl(`intitle:${t}`, 20));
+    if (!res.ok) return null;
+    const json = (await res.json()) as { items?: GVolume[] };
+    const isbn10 = parseIsbn(isbn13)?.isbn10;
+    const hit = (json.items ?? []).map(fromGoogle).find((m) => m?.pageCount && (m.isbn13 === isbn13 || (isbn10 && m.isbn10 === isbn10)));
+    return hit?.pageCount ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function ndlThumbnail(isbn13: string): Promise<string | null> {
