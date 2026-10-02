@@ -1,13 +1,15 @@
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { exportCsv, exportJson } from "@/server/services/backup";
+import { buildSheets, toXlsx } from "@/server/services/workbook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const fmt = url.searchParams.get("format") === "csv" ? "csv" : "json";
+  const f = url.searchParams.get("format");
+  const fmt = f === "csv" || f === "xlsx" ? f : "json";
   const stamp = format(new Date(), "yyyyMMdd-HHmm");
   try {
     if (fmt === "json") {
@@ -16,6 +18,16 @@ export async function GET(req: Request) {
         headers: {
           "Content-Type": "application/json; charset=utf-8",
           "Content-Disposition": `attachment; filename="booknest-backup-${stamp}.json"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    if (fmt === "xlsx") {
+      const file = await toXlsx(await buildSheets(prisma));
+      return new Response(new Uint8Array(file), {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="booknest-${stamp}.xlsx"`,
           "Cache-Control": "no-store",
         },
       });

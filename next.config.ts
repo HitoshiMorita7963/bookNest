@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["sharp", "@prisma/client", "@prisma/adapter-libsql", "@libsql/client"],
+  serverExternalPackages: ["sharp", "exceljs", "@prisma/client", "@prisma/adapter-libsql", "@libsql/client"],
   devIndicators: false,
   experimental: {
     serverActions: { bodySizeLimit: "12mb" },

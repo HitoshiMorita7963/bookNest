@@ -37,6 +37,16 @@ const TABLE_LABEL: Record<string, string> = {
   quote: "フレーズ",
   knowledgeNote: "知識",
   readingPath: "読書ルート",
+  creativeNote: "創作メモ",
+  creativeNoteTag: "創作メモのタグ",
+  novelProject: "作品",
+  character: "人物",
+  characterRelationship: "人物の関係",
+  worldSetting: "世界観",
+  plot: "プロット",
+  chapter: "章",
+  scene: "シーン",
+  creativeLink: "読書と創作の紐付け",
   aIConversation: "AI会話",
   aIMessage: "AIメッセージ",
 };
@@ -159,6 +169,11 @@ export function DataCard({ hasSample }: { hasSample: boolean }) {
           <h3 className="text-sm font-semibold">バックアップ・エクスポート</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             <Button asChild variant="outline" className="justify-start">
+              <a href="/api/export?format=xlsx" download>
+                <FileSpreadsheet /> すべてのデータ（Excel）
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="justify-start">
               <a href="/api/export?format=json" download>
                 <FileJson /> すべてのデータ（JSON）
               </a>
@@ -179,7 +194,10 @@ export function DataCard({ hasSample }: { hasSample: boolean }) {
               </a>
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">JSON には本・著者・タグ・読書記録・読書メモ・フレーズ・知識・本棚・読書目標・読書ルートが含まれます。画像ファイルは含まれません。</p>
+          <p className="text-xs text-muted-foreground">
+            Excel は種類ごとにシートを分けた表で、Excel・Google スプレッドシート（ドライブにアップロードして開く、または「ファイル → インポート」）・Numbers で開けます。
+            JSON はアプリに読み込み直せる完全なバックアップです。どちらも本・読書記録・読書メモ・フレーズ・知識・本棚・読書目標・読書ルート・創作（メモ・作品・人物など）を含みます。画像ファイルは含まれません。
+          </p>
         </section>
 
         <section className="space-y-2">
