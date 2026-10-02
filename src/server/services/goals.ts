@@ -2,6 +2,7 @@ import type { Db } from "@/lib/db";
 import { goalInputSchema } from "@/lib/validators";
 import { AppError, DuplicateError } from "@/lib/errors";
 import type { GoalType } from "@/lib/constants";
+import { pagesInRange } from "./stats";
 
 export async function createGoal(db: Db, input: unknown) {
   const data = goalInputSchema.parse(input);
@@ -27,8 +28,7 @@ export async function goalProgress(db: Db, goal: { type: string; year: number; m
   const from = new Date(goal.year, type === "MONTHLY_BOOKS" ? (goal.month ?? 1) - 1 : 0, 1);
   const to = type === "MONTHLY_BOOKS" ? new Date(goal.year, goal.month ?? 1, 1) : new Date(goal.year + 1, 0, 1);
   if (type === "YEARLY_PAGES") {
-    const r = await db.readingSession.aggregate({ where: { date: { gte: from, lt: to } }, _sum: { pagesRead: true } });
-    return r._sum.pagesRead ?? 0;
+    return pagesInRange(db, from, new Date(to.getTime() - 1));
   }
   return db.readingRecord.count({
     where: {

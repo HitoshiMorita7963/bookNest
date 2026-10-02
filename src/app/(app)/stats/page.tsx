@@ -37,6 +37,12 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
           <StatTile label="連続読書" value={String(streak)} unit="日" />
         </div>
 
+        {summary.missingPageCount > 0 ? (
+          <p className="rounded-xl bg-muted/60 p-3 text-sm text-muted-foreground">
+            ページ数が登録されていない読了本が{summary.missingPageCount}冊あり、読んだページには含まれていません。本の編集画面でページ数を入力すると集計に入ります。
+          </p>
+        ) : null}
+
         {!hasAny ? (
           <EmptyState icon="📊" title={`${PERIOD_LABEL[period]}の記録はまだありません`} description="本を読み進めて進捗を記録したり、読了すると統計が表示されます。" />
         ) : null}

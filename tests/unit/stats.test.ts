@@ -139,3 +139,30 @@ describe("Stats page data (single-pass)", () => {
     }
   });
 });
+
+describe("pages of books marked completed without progress", () => {
+  it("counts the page count on the finish date, without double counting logged progress", async () => {
+    // 登録と同時に読了日が付くので、集計の基準時刻は少し後にする
+    const now = new Date(Date.now() + 60_000);
+    // 進捗を記録せずに「読了」で登録した本
+    await createBook(db, { title: "直接読了", pageCount: 320, status: "COMPLETED" });
+    // 進捗を記録してから読了した本（セッションで全ページが記録済み）
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1, 12).toISOString();
+    await readBook("進捗あり", 200, 4, "小説", thisMonth);
+    // ページ数が未登録の読了本
+    await createBook(db, { title: "ページ不明", status: "COMPLETED" });
+
+    const all = await getSummary(db, "all", now);
+    expect(all.books).toBe(3);
+    expect(all.pagesRead).toBe(520);
+    expect(all.missingPageCount).toBe(1);
+    const months = await getMonthlySeries(db, "all", now);
+    expect(months.reduce((s, m) => s + m.pages, 0)).toBe(520);
+    const years = await getYearlySeries(db);
+    expect(years.reduce((s, y) => s + y.pages, 0)).toBe(520);
+
+    await createGoal(db, { type: "YEARLY_PAGES", year: now.getFullYear(), target: 1000 });
+    const goals = await listGoalsWithProgress(db, now.getFullYear());
+    expect(goals.find((g) => g.type === "YEARLY_PAGES")?.current).toBe(520);
+  });
+});

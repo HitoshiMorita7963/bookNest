@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, format, startOfDay, startOfMonth, startOfYear, subDays, subMonths, subYears } from "date-fns";
+import { addDays, differenceInCalendarDays, endOfDay, format, startOfDay, startOfMonth, startOfYear, subDays, subMonths, subYears } from "date-fns";
 import type { Db } from "@/lib/db";
 
 export type Period = "month" | "year" | "last12" | "all";
@@ -41,16 +41,47 @@ async function sessionsIn(db: Db, from: Date | null, to: Date) {
 
 type CompletedRecord = Awaited<ReturnType<typeof completedRecords>>[number];
 type SessionRow = Awaited<ReturnType<typeof sessionsIn>>[number];
+export interface PageEntry {
+  date: Date;
+  pagesRead: number;
+}
+
+/**
+ * 進捗を記録せずに読了にした本のページ数を、読了日に計上する。
+ * 読書記録の期間中に進捗として記録したページは差し引くので、二重には数えない。
+ * （ページ数が未登録の本は数えられない）
+ */
+export async function completionPages(db: Db, records: Pick<CompletedRecord, "startedAt" | "finishedAt" | "book">[]): Promise<PageEntry[]> {
+  const targets = records.filter((r) => r.finishedAt && r.book.pageCount);
+  if (!targets.length) return [];
+  const ids = [...new Set(targets.map((r) => r.book.id))];
+  const sessions = await db.readingSession.findMany({ where: { bookId: { in: ids } }, select: { bookId: true, date: true, pagesRead: true } });
+  return targets
+    .map((r) => {
+      const end = endOfDay(r.finishedAt!);
+      const start = r.startedAt ? startOfDay(r.startedAt) : null;
+      const logged = sessions.filter((s) => s.bookId === r.book.id && s.date <= end && (!start || s.date >= start)).reduce((sum, s) => sum + s.pagesRead, 0);
+      return { date: r.finishedAt!, pagesRead: Math.max(0, r.book.pageCount! - logged) };
+    })
+    .filter((e) => e.pagesRead > 0);
+}
+
+/** 期間内に読んだページ数（進捗の記録 ＋ 進捗なしで読了にした本） */
+export async function pagesInRange(db: Db, from: Date | null, to: Date): Promise<number> {
+  const [records, sessions] = await Promise.all([completedRecords(db, from, to), sessionsIn(db, from, to)]);
+  const extra = await completionPages(db, records);
+  return [...sessions, ...extra].reduce((s, x) => s + x.pagesRead, 0);
+}
 
 export async function getSummary(db: Db, period: Period, now = new Date()) {
   const { from, to } = periodRange(period, now);
   const [records, sessions] = await Promise.all([completedRecords(db, from, to), sessionsIn(db, from, to)]);
-  return summarize(records, sessions);
+  return summarize(records, [...sessions, ...(await completionPages(db, records))]);
 }
 
-function summarize(records: CompletedRecord[], sessions: SessionRow[]) {
+function summarize(records: CompletedRecord[], sessions: (SessionRow | PageEntry)[]) {
   const pagesRead = sessions.reduce((s, x) => s + x.pagesRead, 0);
-  const minutes = sessions.reduce((s, x) => s + (x.minutes ?? 0), 0);
+  const minutes = sessions.reduce((s, x) => s + ("minutes" in x ? (x.minutes ?? 0) : 0), 0);
   const durations = records
     .filter((r) => r.startedAt && r.finishedAt)
     .map((r) => Math.max(1, differenceInCalendarDays(r.finishedAt!, r.startedAt!) + 1));
@@ -64,6 +95,8 @@ function summarize(records: CompletedRecord[], sessions: SessionRow[]) {
     avgRating: rated.length ? rated.reduce((s, r) => s + r.rating!, 0) / rated.length : null,
     avgDays: durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : null,
     avgPages: withPages.length ? withPages.reduce((s, r) => s + (r.book.pageCount ?? 0), 0) / withPages.length : null,
+    /** ページ数が未登録の読了本（ページの集計に入らない） */
+    missingPageCount: records.length - withPages.length,
     records,
   };
 }
@@ -80,7 +113,8 @@ export async function getMonthlySeries(db: Db, period: Period, now = new Date())
     from = startOfMonth(candidates.length ? new Date(Math.min(...candidates.map((d) => d.getTime()))) : subMonths(now, 11));
     if (differenceInCalendarDays(now, from) < 330) from = startOfMonth(subMonths(now, 11));
   }
-  const [records, sessions] = await Promise.all([completedRecords(db, from, to), sessionsIn(db, from, to)]);
+  const [records, rawSessions] = await Promise.all([completedRecords(db, from, to), sessionsIn(db, from, to)]);
+  const sessions = [...rawSessions, ...(await completionPages(db, records))];
   const months: { key: string; label: string; books: number; pages: number }[] = [];
   for (let d = startOfMonth(from); d <= to; d = startOfMonth(addDays(d, 32))) {
     months.push({ key: format(d, "yyyy-MM"), label: format(d, "yy/M"), books: 0, pages: 0 });
@@ -117,7 +151,7 @@ export async function getYearlySeries(db: Db) {
     const g = r.book.genre ?? "未分類";
     y.genres.set(g, (y.genres.get(g) ?? 0) + 1);
   }
-  for (const s of sessions) get(s.date.getFullYear()).pages += s.pagesRead;
+  for (const s of [...sessions, ...(await completionPages(db, records))]) get(s.date.getFullYear()).pages += s.pagesRead;
   for (const q of quotes) get(q.createdAt.getFullYear()).quotes++;
   for (const k of knowledge) get(k.createdAt.getFullYear()).knowledge++;
   return [...years.values()]
@@ -209,10 +243,13 @@ export async function getStatsPageData(db: Db, period: Period, now = new Date())
   const candidates = [from, yearStart, heatFrom, monthlyFrom];
   const earliest = candidates.includes(null) ? null : new Date(Math.min(...candidates.map((d) => d!.getTime())));
   const [records, sessions] = await Promise.all([completedRecords(db, earliest, now), sessionsIn(db, earliest, now)]);
+  // 進捗を記録せずに読了にした本のページ（読了日に計上。ヒートマップ・連続日数には含めない）
+  const extraPages = await completionPages(db, records);
+  const pageRows = [...sessions, ...extraPages];
 
   const inRange = <T,>(rows: T[], get: (r: T) => Date, start: Date | null) => (start ? rows.filter((r) => get(r) >= start) : rows);
   const pRecords = inRange(records, (r) => r.finishedAt!, from);
-  const pSessions = inRange(sessions, (s) => s.date, from);
+  const pSessions = inRange(pageRows, (s) => s.date, from);
 
   // 月別推移
   let mFrom = monthlyFrom;
@@ -228,7 +265,7 @@ export async function getStatsPageData(db: Db, period: Period, now = new Date())
     const i = idx.get(format(r.finishedAt!, "yyyy-MM"));
     if (i != null) monthly[i].books++;
   }
-  for (const s of sessions) {
+  for (const s of pageRows) {
     const i = idx.get(format(s.date, "yyyy-MM"));
     if (i != null) monthly[i].pages += s.pagesRead;
   }
@@ -261,7 +298,7 @@ export async function getStatsPageData(db: Db, period: Period, now = new Date())
     summary: summarize(pRecords, pSessions),
     yearSummary: summarize(
       records.filter((r) => r.finishedAt! >= yearStart),
-      sessions.filter((s) => s.date >= yearStart),
+      pageRows.filter((s) => s.date >= yearStart),
     ),
     monthly,
     genres,

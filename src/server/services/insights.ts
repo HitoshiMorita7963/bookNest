@@ -4,6 +4,7 @@
  */
 import { differenceInCalendarDays, subMonths } from "date-fns";
 import type { Db } from "@/lib/db";
+import { pagesInRange } from "./stats";
 
 export type InsightPeriod = "3m" | "1y" | "all";
 export const INSIGHT_PERIOD_LABEL: Record<InsightPeriod, string> = { "3m": "3か月", "1y": "1年", all: "全期間" };
@@ -136,7 +137,7 @@ export async function lifeSummary(db: Db) {
   ]);
   return {
     completed,
-    pages: pages._sum.pagesRead ?? 0,
+    pages: await pagesInRange(db, null, new Date()),
     minutes: pages._sum.minutes ?? 0,
     quotes,
     knowledge,
