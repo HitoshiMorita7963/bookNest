@@ -148,6 +148,22 @@ export async function getKnowledge(db: Db, id: string) {
   });
 }
 
+/**
+ * カテゴリ名をまとめて変更する。既にあるカテゴリ名にすると、そのカテゴリに統合される。
+ * from に null を渡すと「未分類」の知識が対象。to を空にすると未分類に戻す。
+ */
+export async function renameKnowledgeCategory(db: Db, from: string | null, to: string) {
+  const next = to.normalize("NFKC").trim().slice(0, 60) || null;
+  const prev = from?.trim() || null;
+  if (prev === next) return { count: 0, ids: [] as string[], merged: false };
+  const targets = await db.knowledgeNote.findMany({ where: prev ? { category: prev } : { OR: [{ category: null }, { category: "" }] }, select: { id: true } });
+  if (!targets.length) throw new NotFoundError("カテゴリ");
+  const merged = next ? (await db.knowledgeNote.count({ where: { category: next } })) > 0 : false;
+  const ids = targets.map((t) => t.id);
+  await db.knowledgeNote.updateMany({ where: { id: { in: ids } }, data: { category: next } });
+  return { count: ids.length, ids, merged };
+}
+
 export async function knowledgeFacets(db: Db) {
   const [categories, tags] = await Promise.all([
     db.knowledgeNote.groupBy({ by: ["category"], _count: { _all: true }, where: { category: { not: null } } }),

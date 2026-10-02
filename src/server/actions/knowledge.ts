@@ -79,6 +79,16 @@ export async function unlinkQuoteKnowledgeAction(quoteId: string, knowledgeId: s
   }
 }
 
+export async function renameKnowledgeCategoryAction(from: string | null, to: string): Promise<ActionResult<{ count: number; merged: boolean }>> {
+  try {
+    const r = await k.renameKnowledgeCategory(prisma, from, to);
+    syncSheetLater("knowledge", ...r.ids);
+    return done({ count: r.count, merged: r.merged });
+  } catch (e) {
+    return toUserError(e);
+  }
+}
+
 export async function pickKnowledgeAction(q: string) {
   return k.pickKnowledge(prisma, q.slice(0, 100));
 }
