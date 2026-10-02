@@ -22,6 +22,10 @@ export interface BookMetadata {
   description?: string | null;
   language?: string | null;
   seriesTitle?: string | null;
+  /** 日本十進分類（国立国会図書館。ジャンル推定に使う） */
+  ndc?: string | null;
+  /** 件名（国立国会図書館） */
+  subjects?: string[];
   source: string;
 }
 
@@ -217,6 +221,17 @@ function decodeXml(s: string) {
     .replace(/&amp;/g, "&");
 }
 
+/** 日本十進分類（新しい版を優先）。同じ本の複数の書誌レコードから探す */
+function ndcOf(items: string[]): string | null {
+  for (const ver of ["NDC10", "NDC9", "NDC8", "NDC"]) {
+    for (const it of items) {
+      const m = it.match(new RegExp(`<dc:subject xsi:type="dcndl:${ver}">([^<]+)</dc:subject>`));
+      if (m) return m[1].trim();
+    }
+  }
+  return null;
+}
+
 export const ndlProvider: MetadataProvider = {
   name: "NDL",
   async lookupIsbn(isbn13) {
@@ -243,6 +258,8 @@ export const ndlProvider: MetadataProvider = {
       isbn13,
       description: null,
       seriesTitle: xmlTag(item, "dcndl:seriesTitle")[0] ?? null,
+      ndc: ndcOf(items),
+      subjects: Array.from(new Set(items.flatMap((it) => xmlTag(it, "dc:subject")).filter((s) => !/^[\dA-Z]/.test(s)))).slice(0, 8),
       source: "国立国会図書館",
     };
   },

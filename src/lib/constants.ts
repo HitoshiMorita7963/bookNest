@@ -1,3 +1,4 @@
+import { GENRES } from "./classify";
 export const BOOK_STATUSES = [
   "WANT_TO_READ",
   "OWNED",
@@ -47,25 +48,8 @@ export const GOAL_LABEL: Record<GoalType, string> = {
   GENRE_BOOKS: "ジャンル別冊数",
 };
 
-export const DEFAULT_GENRES = [
-  "小説",
-  "日本文学",
-  "海外文学",
-  "歴史",
-  "政治",
-  "経済",
-  "ビジネス",
-  "哲学",
-  "心理学",
-  "科学",
-  "技術",
-  "社会",
-  "芸術",
-  "エッセイ",
-  "漫画",
-  "人文学",
-  "その他",
-];
+/** ジャンルの候補（自動提案と同じ一覧。src/lib/classify.ts） */
+export const DEFAULT_GENRES: readonly string[] = GENRES;
 
 export const SORT_OPTIONS = {
   createdAt: "追加日",
