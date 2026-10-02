@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "./helpers";
 import { createBook } from "@/server/services/books";
 import { createQuote } from "@/server/services/quotes";
-import { createKnowledge, deleteKnowledge, getKnowledge, getKnowledgeGraph, linkKnowledge, linkQuoteKnowledge, listKnowledge, unlinkKnowledge, unlinkQuoteKnowledge, updateKnowledge } from "@/server/services/knowledge";
+import { createKnowledge, deleteKnowledge, getKnowledge, getKnowledgeGraph, linkKnowledge, linkQuoteKnowledge, listKnowledge, renameKnowledgeCategory, unlinkKnowledge, unlinkQuoteKnowledge, updateKnowledge } from "@/server/services/knowledge";
 
 beforeEach(resetDb);
 
@@ -77,5 +77,31 @@ describe("linking quotes and knowledge later", () => {
     expect(await db.quoteKnowledge.count({ where: { knowledgeId: kn.id } })).toBe(0);
     expect(await db.bookKnowledge.count({ where: { knowledgeId: kn.id } })).toBe(1);
     await expect(linkQuoteKnowledge(db, "missing", kn.id)).rejects.toThrow();
+  });
+});
+
+describe("renaming knowledge categories", () => {
+  it("renames, merges into an existing category, and handles uncategorized notes", async () => {
+    await createKnowledge(db, { title: "a", category: "経済学" });
+    await createKnowledge(db, { title: "b", category: "経済学" });
+    await createKnowledge(db, { title: "c", category: "経済" });
+    await createKnowledge(db, { title: "d" });
+
+    const merged = await renameKnowledgeCategory(db, "経済学", " 経済 ");
+    expect(merged).toMatchObject({ count: 2, merged: true });
+    expect(await db.knowledgeNote.count({ where: { category: "経済" } })).toBe(3);
+    expect(await db.knowledgeNote.count({ where: { category: "経済学" } })).toBe(0);
+
+    const renamed = await renameKnowledgeCategory(db, "経済", "経済・金融");
+    expect(renamed).toMatchObject({ count: 3, merged: false });
+
+    // 未分類の知識にカテゴリを付ける
+    await renameKnowledgeCategory(db, null, "その他");
+    expect((await db.knowledgeNote.findFirstOrThrow({ where: { title: "d" } })).category).toBe("その他");
+    // 空にすると未分類に戻る
+    await renameKnowledgeCategory(db, "その他", "");
+    expect((await db.knowledgeNote.findFirstOrThrow({ where: { title: "d" } })).category).toBeNull();
+
+    await expect(renameKnowledgeCategory(db, "存在しない", "x")).rejects.toThrow();
   });
 });

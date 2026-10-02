@@ -8,6 +8,7 @@ import { EmptyState, TagChip } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
 import { truncate } from "@/lib/utils";
 import { ChipLink } from "@/components/ui/chip-link";
+import { RenameCategoryButton } from "@/components/knowledge/category-rename";
 
 export const metadata = { title: "知識" };
 
@@ -136,11 +137,19 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
                     <h2 className="font-semibold">{g.name}</h2>
                     <span className="text-sm text-muted-foreground">{g.notes.length}件</span>
                     {g.links ? <span className="text-xs text-muted-foreground">・ つながり {g.links}</span> : null}
-                    {g.category && !sp.category ? (
-                      <Link href={href(sp, { category: g.category })} className="ml-auto text-xs text-primary hover:underline">
-                        このカテゴリだけ
-                      </Link>
-                    ) : null}
+                    <span className="ml-auto flex items-center gap-1">
+                      {g.category && !sp.category ? (
+                        <Link href={href(sp, { category: g.category })} className="text-xs text-primary hover:underline">
+                          このカテゴリだけ
+                        </Link>
+                      ) : null}
+                      {/* 検索などで絞り込んでいても、変更はそのカテゴリの知識すべてが対象 */}
+                      <RenameCategoryButton
+                        category={g.category}
+                        count={g.category ? (facets.categories.find((c) => c.name === g.category)?.count ?? g.notes.length) : total - facets.categories.reduce((n, c) => n + c.count, 0)}
+                        categories={facets.categories}
+                      />
+                    </span>
                   </summary>
                   <ul className="mt-2 grid gap-3 md:grid-cols-2">
                     {g.notes.map((n) => (
