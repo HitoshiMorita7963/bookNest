@@ -117,9 +117,10 @@ export async function unlinkRelatedBookAction(a: string, b: string): Promise<Act
 }
 
 /** 登録時にジャンル・タグを自動で提案する（AI が使えれば AI、使えなければキーワードと分類番号から推定） */
-export async function classifyBookAction(input: ClassifyInput & { authors?: string[]; isbn13?: string | null }): Promise<ActionResult<Classification & { by: "ai" | "rules" }>> {
+export async function classifyBookAction(input: ClassifyInput & { authors?: string[]; isbn13?: string | null; volume?: string | null }): Promise<ActionResult<Classification & { by: "ai" | "rules" }>> {
   try {
-    const meta: ClassifyInput & { authors?: string[] } = {
+    const meta: ClassifyInput & { authors?: string[]; volume?: string | null } = {
+      volume: input.volume?.slice(0, 30) ?? null,
       title: String(input.title ?? "").slice(0, 300),
       subtitle: input.subtitle?.slice(0, 300) ?? null,
       description: input.description?.slice(0, 3000) ?? null,

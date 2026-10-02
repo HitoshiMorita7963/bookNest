@@ -89,6 +89,9 @@ export interface ClassifyInput {
 export interface Classification {
   genre: string | null;
   tags: string[];
+  /** AI が判定したシリーズ（レーベルではない作品のシリーズ）と巻数 */
+  seriesTitle?: string | null;
+  seriesNumber?: number | null;
 }
 
 const FICTION_GENRES = new Set(["小説"]);

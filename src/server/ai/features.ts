@@ -147,13 +147,15 @@ const CLASSIFY_SCHEMA = {
   properties: {
     genre: { type: "string", enum: [...GENRES] },
     tags: { type: "array", items: { type: "string" } },
+    seriesTitle: { type: "string" },
+    seriesNumber: { type: ["number", "null"] },
   },
-  required: ["genre", "tags"],
+  required: ["genre", "tags", "seriesTitle", "seriesNumber"],
   additionalProperties: false,
 };
 
 /** 書誌情報からジャンルとタグを選ぶ。ルールベースの推定結果（draft）を参考として渡す */
-export async function suggestGenreTags(input: ClassifyInput & { authors?: string[] }, draft: Classification): Promise<Classification> {
+export async function suggestGenreTags(input: ClassifyInput & { authors?: string[]; volume?: string | null }, draft: Classification): Promise<Classification> {
   const provider = getProvider();
   const lines = [
     `タイトル：${input.title}`,
@@ -161,6 +163,7 @@ export async function suggestGenreTags(input: ClassifyInput & { authors?: string
     input.authors?.length ? `著者：${input.authors.join("、")}` : "",
     input.publisher ? `出版社：${input.publisher}` : "",
     input.seriesTitle ? `叢書・レーベル：${input.seriesTitle}` : "",
+    input.volume ? `巻次：${input.volume}` : "",
     input.ndc ? `日本十進分類（NDC）：${input.ndc}` : "",
     input.subjects?.length ? `件名：${input.subjects.join("、")}` : "",
     input.description ? `内容紹介：${input.description.slice(0, 1500)}` : "",
@@ -173,6 +176,7 @@ export async function suggestGenreTags(input: ClassifyInput & { authors?: string
       `小説のタグは主に次から：${FICTION_TAGS.join("、")}。`,
       `小説以外のタグは主に次から：${NONFICTION_TAGS.join("、")}。`,
       "タグは本の内容をよく表すものを1〜4個。候補にぴったりのものが無いときだけ、短い一般的な言葉（10文字以内）を使ってかまいません。",
+      "seriesTitle と seriesNumber：この本が複数巻の作品やシリーズ（例：ハリー・ポッター、ONE PIECE、〇〇（上・下））の1冊なら、そのシリーズ名（巻表記を除く）と巻数（上巻=1、下巻=2）。出版社のレーベル（〇〇文庫・〇〇新書・〇〇コミックス）はシリーズではありません。シリーズでなければ seriesTitle は空文字、seriesNumber は null。確信がない場合も空にしてください。",
       "書誌情報から判断できないことを推測で付けすぎないでください。",
     ].join("\n"),
     prompt: lines.join("\n"),
@@ -180,5 +184,7 @@ export async function suggestGenreTags(input: ClassifyInput & { authors?: string
   });
   const genre = (GENRES as readonly string[]).includes(r.genre ?? "") ? r.genre : draft.genre;
   const tags = Array.from(new Set((r.tags ?? []).map((t) => t.trim().slice(0, 20)).filter(Boolean))).slice(0, 4);
-  return { genre, tags: tags.length ? tags : draft.tags };
+  const seriesTitle = r.seriesTitle?.trim().slice(0, 200) || null;
+  const seriesNumber = typeof r.seriesNumber === "number" && r.seriesNumber > 0 && r.seriesNumber < 10000 ? r.seriesNumber : null;
+  return { genre, tags: tags.length ? tags : draft.tags, seriesTitle, seriesNumber: seriesTitle ? seriesNumber : null };
 }
