@@ -254,8 +254,8 @@ export function describeSource(l: SourceLinkRow): { kind: LinkSourceKind; label:
 /* ---------------- 逆引き：本・フレーズ・知識が創作にどう使われているか ---------------- */
 
 export interface CreativeUsage {
-  projects: { id: string; title: string; counts: Partial<Record<LinkTargetKind, number>>; items: { kind: LinkTargetKind; label: string; href: string; purpose: string | null; via?: string }[] }[];
-  notes: { id: string; title: string; category: string }[];
+  projects: { id: string; title: string; counts: Partial<Record<LinkTargetKind, number>>; items: { kind: LinkTargetKind; label: string; href: string; purpose: string | null; via?: string; linkId?: string }[] }[];
+  notes: { id: string; title: string; category: string; linkId: string }[];
   total: number;
 }
 
@@ -273,12 +273,13 @@ export async function creativeUsageOf(db: Db, source: { kind: Exclude<LinkSource
     if (!t.projectId) return;
     const p = projects.get(t.projectId) ?? { id: t.projectId, title: t.projectTitle ?? "作品", counts: {}, items: [] };
     p.counts[t.kind] = (p.counts[t.kind] ?? 0) + 1;
-    p.items.push({ kind: t.kind, label: t.label, href: t.href, purpose: l.purpose, via });
+    // 直接の紐付けだけ、ここから解除できるよう ID を渡す（メモ経由のものはメモ側で解除する）
+    p.items.push({ kind: t.kind, label: t.label, href: t.href, purpose: l.purpose, via, linkId: via ? undefined : l.id });
     projects.set(t.projectId, p);
   };
   for (const l of direct) add(l);
   for (const l of viaNotes) add(l, (l as unknown as { note: { title: string } | null }).note?.title ?? undefined);
-  const notes = direct.filter((l) => l.targetNote).map((l) => ({ id: l.targetNote!.id, title: l.targetNote!.title, category: l.targetNote!.category }));
+  const notes = direct.filter((l) => l.targetNote).map((l) => ({ id: l.targetNote!.id, title: l.targetNote!.title, category: l.targetNote!.category, linkId: l.id }));
   return { projects: [...projects.values()], notes, total: direct.length + viaNotes.length };
 }
 

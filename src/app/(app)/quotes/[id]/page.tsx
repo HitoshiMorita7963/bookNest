@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { AiQuoteAnalysis } from "@/components/ai/ai-quote-analysis";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
 import { ReadMore } from "@/components/ui/read-more";
+import { LinkKnowledgeToQuoteButton, UnlinkQuoteKnowledgeButton } from "@/components/knowledge/quote-knowledge-links";
 
 export const metadata = { title: "フレーズ" };
 
@@ -60,28 +61,32 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         <section>
           <SectionTitle
             action={
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/knowledge/new?quoteId=${q.id}${q.book ? `&bookId=${q.book.id}` : ""}`}>
-                  <Plus /> 知識ノートを作る
-                </Link>
-              </Button>
+              <div className="flex gap-1.5">
+                <LinkKnowledgeToQuoteButton quoteId={q.id} linkedIds={q.knowledge.map((x) => x.knowledge.id)} />
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/knowledge/new?quoteId=${q.id}${q.book ? `&bookId=${q.book.id}` : ""}`}>
+                    <Plus /> 新規
+                  </Link>
+                </Button>
+              </div>
             }
           >
-            <Brain className="size-5 text-primary" /> このフレーズから得た知識
+            <Brain className="size-5 text-primary" /> 関連する知識
           </SectionTitle>
           {q.knowledge.length ? (
             <ul className="space-y-2">
               {q.knowledge.map(({ knowledge: k }) => (
-                <li key={k.id}>
-                  <Link href={`/knowledge/${k.id}`} className="block rounded-xl border bg-card p-3 hover:bg-accent/40">
+                <li key={k.id} className="flex items-start gap-1 rounded-xl border bg-card hover:bg-accent/40">
+                  <Link href={`/knowledge/${k.id}`} className="block min-w-0 flex-1 p-3">
                     <p className="font-medium">🧠 {k.title}</p>
                     {k.content ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{k.content}</p> : null}
                   </Link>
+                  <UnlinkQuoteKnowledgeButton quoteId={q.id} knowledgeId={k.id} className="m-1.5 shrink-0" />
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">フレーズ（本の言葉）とメモ（なぜ残したか）から、自分が得た理解を「知識」として残せます。</p>
+            <p className="text-sm text-muted-foreground">フレーズ（本の言葉）とメモ（なぜ残したか）から得た理解を「知識」として残せます。「知識とつなげる」で既存の知識に関連付けることもできます。</p>
           )}
         </section>
 
