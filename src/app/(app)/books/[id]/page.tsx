@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { QuoteCard } from "@/components/quotes/quote-card";
 import { formatNumber } from "@/lib/utils";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
+import { ReadMore } from "@/components/ui/read-more";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -162,7 +163,9 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
                           {format(s.date, "yyyy/M/d HH:mm")}
                           {s.endPage != null ? ` ・ p.${s.endPage}` : ""}
                         </p>
-                        <p className="prose-note mt-1 text-[15px]">{s.note}</p>
+                        <ReadMore as="p" className="prose-note mt-1 text-[15px]">
+                          {s.note}
+                        </ReadMore>
                       </div>
                       <DeleteSessionButton id={s.id} bookId={book.id} />
                     </li>
@@ -235,7 +238,9 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
           {book.description ? (
             <section>
               <SectionTitle>内容紹介</SectionTitle>
-              <p className="prose-note text-[15px] leading-relaxed text-foreground/85">{book.description}</p>
+              <ReadMore as="p" className="prose-note text-[15px] leading-relaxed text-foreground/85">
+                {book.description}
+              </ReadMore>
             </section>
           ) : null}
 

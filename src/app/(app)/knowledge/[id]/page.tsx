@@ -10,6 +10,7 @@ import { SectionTitle, TagChip, authorNames } from "@/components/books/bits";
 import { QuoteCard } from "@/components/quotes/quote-card";
 import { KnowledgeMenu, UnlinkKnowledgeButton } from "@/components/knowledge/knowledge-client";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
+import { ReadMore } from "@/components/ui/read-more";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -44,7 +45,11 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
             </div>
           ) : null}
         </header>
-        {k.content ? <div className="prose-note rounded-2xl border bg-card p-5 text-[16px] leading-relaxed">{k.content}</div> : null}
+        {k.content ? (
+          <div className="rounded-2xl border bg-card p-5">
+            <ReadMore className="prose-note text-[16px] leading-relaxed">{k.content}</ReadMore>
+          </div>
+        ) : null}
 
         <section>
           <SectionTitle>📚 関連書籍</SectionTitle>
