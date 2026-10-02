@@ -290,7 +290,7 @@ export async function creativeUsageOf(db: Db, source: { kind: Exclude<LinkSource
  * 類似創作メモの検索（MVP：文字の 2-gram の重なりによる類似度）
  * 将来 Embedding / ベクトル検索に置き換える場合は、この関数の実装だけを差し替える。
  */
-function bigrams(text: string) {
+export function bigrams(text: string) {
   const t = text.normalize("NFKC").toLowerCase().replace(/[\s、。！？!?「」『』（）()・,.]/g, "");
   const set = new Set<string>();
   for (let i = 0; i < t.length - 1; i++) set.add(t.slice(i, i + 2));
