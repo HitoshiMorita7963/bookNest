@@ -153,7 +153,9 @@ export async function knowledgeFacets(db: Db) {
     db.knowledgeNote.groupBy({ by: ["category"], _count: { _all: true }, where: { category: { not: null } } }),
     db.tag.findMany({ where: { knowledge: { some: {} } }, select: { name: true, _count: { select: { knowledge: true } } }, orderBy: { name: "asc" } }),
   ]);
-  return { categories: categories.map((c) => ({ name: c.category!, count: c._count._all })), tags };
+  // 一覧のカテゴリの並び（件数の多い順）と揃える
+  const sorted = categories.map((c) => ({ name: c.category!, count: c._count._all })).sort((x, y) => y.count - x.count || x.name.localeCompare(y.name, "ja"));
+  return { categories: sorted, tags };
 }
 
 /** 知識マップ用：ノードとエッジ。共通の本で結ばれる暗黙のつながりも含める */

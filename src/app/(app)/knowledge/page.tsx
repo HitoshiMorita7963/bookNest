@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Network, Plus } from "lucide-react";
+import { ChevronRight, Network, Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { knowledgeFacets, listKnowledge } from "@/server/services/knowledge";
 import { PageHeader } from "@/components/layout/page-header";
@@ -18,6 +18,47 @@ function href(sp: SP, patch: Partial<SP>) {
   for (const [k, v] of Object.entries({ ...sp, ...patch })) if (v) p.set(k, v);
   const qs = p.toString();
   return qs ? `/knowledge?${qs}` : "/knowledge";
+}
+
+type Note = Awaited<ReturnType<typeof listKnowledge>>[number];
+
+/** カテゴリごとにまとめる（件数の多い順・未分類は最後） */
+function groupByCategory(notes: Note[]) {
+  const map = new Map<string | null, Note[]>();
+  for (const n of notes) {
+    const key = n.category?.trim() || null;
+    map.set(key, [...(map.get(key) ?? []), n]);
+  }
+  return [...map.entries()]
+    .sort(([a, x], [b, y]) => (a === null ? 1 : b === null ? -1 : y.length - x.length || a.localeCompare(b, "ja")))
+    .map(([category, list]) => ({
+      category,
+      name: category ?? "未分類",
+      notes: list,
+      links: list.reduce((s, n) => s + n._count.linksFrom + n._count.linksTo, 0),
+    }));
+}
+
+function KnowledgeCard({ n, sp }: { n: Note; sp: SP }) {
+  return (
+    <li className="relative rounded-2xl border bg-card p-4 hover:bg-accent/30">
+      <Link href={`/knowledge/${n.id}`} className="absolute inset-0 rounded-2xl" aria-label={n.title} />
+      <p className="font-semibold">🧠 {n.title}</p>
+      {n.content ? <p className="mt-1.5 line-clamp-3 text-sm text-muted-foreground">{n.content}</p> : null}
+      {n.books.length ? (
+        <p className="mt-2 line-clamp-1 text-xs text-foreground/70">
+          📖 {n.books.map((b) => `『${truncate(b.book.title, 16)}』`).join(" ")}
+        </p>
+      ) : null}
+      <div className="relative z-10 mt-2 flex flex-wrap items-center gap-1.5">
+        {n.tags.map((t) => (
+          <TagChip key={t.tagId} name={t.tag.name} href={href(sp, { tag: t.tag.name })} />
+        ))}
+        {n._count.linksFrom + n._count.linksTo ? <span className="text-xs text-muted-foreground">🔗 {n._count.linksFrom + n._count.linksTo}</span> : null}
+        {n._count.quotes ? <span className="text-xs text-muted-foreground">💬 {n._count.quotes}</span> : null}
+      </div>
+    </li>
+  );
 }
 
 export default async function KnowledgePage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -87,32 +128,28 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
           {notes.length === 0 ? (
             <EmptyState icon="🔍" title="該当する知識はありません" />
           ) : (
-            <ul className="grid gap-3 md:grid-cols-2">
-              {notes.map((n) => (
-                <li key={n.id} className="relative rounded-2xl border bg-card p-4 hover:bg-accent/30">
-                  <Link href={`/knowledge/${n.id}`} className="absolute inset-0 rounded-2xl" aria-label={n.title} />
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-semibold">🧠 {n.title}</p>
-                    {n.category ? <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs">{n.category}</span> : null}
-                  </div>
-                  {n.content ? <p className="mt-1.5 line-clamp-3 text-sm text-muted-foreground">{n.content}</p> : null}
-                  {n.books.length ? (
-                    <p className="mt-2 line-clamp-1 text-xs text-foreground/70">
-                      📖 {n.books.map((b) => `『${truncate(b.book.title, 16)}』`).join(" ")}
-                    </p>
-                  ) : null}
-                  <div className="relative z-10 mt-2 flex flex-wrap items-center gap-1.5">
-                    {n.tags.map((t) => (
-                      <TagChip key={t.tagId} name={t.tag.name} href={href(sp, { tag: t.tag.name })} />
-                    ))}
-                    {n._count.linksFrom + n._count.linksTo ? (
-                      <span className="text-xs text-muted-foreground">🔗 {n._count.linksFrom + n._count.linksTo}</span>
+            <div className="space-y-3">
+              {groupByCategory(notes).map((g) => (
+                <details key={g.name} open className="group rounded-2xl border bg-muted/30 p-2 md:p-3">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-2 [&::-webkit-details-marker]:hidden">
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+                    <h2 className="font-semibold">{g.name}</h2>
+                    <span className="text-sm text-muted-foreground">{g.notes.length}件</span>
+                    {g.links ? <span className="text-xs text-muted-foreground">・ つながり {g.links}</span> : null}
+                    {g.category && !sp.category ? (
+                      <Link href={href(sp, { category: g.category })} className="ml-auto text-xs text-primary hover:underline">
+                        このカテゴリだけ
+                      </Link>
                     ) : null}
-                    {n._count.quotes ? <span className="text-xs text-muted-foreground">💬 {n._count.quotes}</span> : null}
-                  </div>
-                </li>
+                  </summary>
+                  <ul className="mt-2 grid gap-3 md:grid-cols-2">
+                    {g.notes.map((n) => (
+                      <KnowledgeCard key={n.id} n={n} sp={sp} />
+                    ))}
+                  </ul>
+                </details>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}

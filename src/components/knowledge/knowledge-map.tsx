@@ -20,14 +20,29 @@ interface Edge {
 
 const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
-/** シンプルな力学モデルでノードを配置（決定的：同じデータなら同じ配置） */
-function layout(nodes: Node[], edges: Edge[]) {
+/** カテゴリごとの集合場所（円周上に並べる。カテゴリなしは中央） */
+function categoryAnchors(nodes: Node[]) {
+  const counts = new Map<string, number>();
+  for (const nd of nodes) if (nd.category) counts.set(nd.category, (counts.get(nd.category) ?? 0) + 1);
+  const cats = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja")).map(([c]) => c);
+  const R = cats.length > 1 ? 150 + 45 * cats.length + 6 * Math.sqrt(nodes.length) : 0;
+  return new Map(cats.map((c, i) => [c, { x: Math.cos((2 * Math.PI * i) / cats.length - Math.PI / 2) * R, y: Math.sin((2 * Math.PI * i) / cats.length - Math.PI / 2) * R }]));
+}
+
+/**
+ * シンプルな力学モデルでノードを配置（決定的：同じデータなら同じ配置）。
+ * byCategory のときは同じカテゴリの知識をそのカテゴリの集合場所に引き寄せ、まとまりとして見せる（つながりの線はそのまま）。
+ */
+function layout(nodes: Node[], edges: Edge[], byCategory: boolean) {
   const n = nodes.length;
   const idx = new Map(nodes.map((nd, i) => [nd.id, i]));
-  const pos = nodes.map((_, i) => {
+  const anchors = byCategory ? categoryAnchors(nodes) : new Map<string, { x: number; y: number }>();
+  const anchorOf = (nd: Node) => (nd.category ? anchors.get(nd.category) : undefined) ?? { x: 0, y: 0 };
+  const pos = nodes.map((nd, i) => {
     const a = (2 * Math.PI * i) / Math.max(1, n);
-    const r = 120 + 12 * Math.sqrt(n);
-    return { x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0 };
+    const r = byCategory ? 40 : 120 + 12 * Math.sqrt(n);
+    const c = anchorOf(nd);
+    return { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r, vx: 0, vy: 0 };
   });
   const E = edges.map((e) => [idx.get(e.fromId)!, idx.get(e.toId)!, e.implicit ? 0.4 : 1] as const).filter(([a, b]) => a != null && b != null);
   const iterations = Math.min(400, 120 + n * 4);
@@ -56,21 +71,39 @@ function layout(nodes: Node[], edges: Edge[]) {
       pos[b].vx -= (dx / d) * f;
       pos[b].vy -= (dy / d) * f;
     }
-    for (const p of pos) {
-      p.vx -= p.x * 0.01;
-      p.vy -= p.y * 0.01;
+    pos.forEach((p, i) => {
+      const c = anchorOf(nodes[i]);
+      const g = byCategory ? 0.05 : 0.01;
+      p.vx -= (p.x - c.x) * g;
+      p.vy -= (p.y - c.y) * g;
       const max = 20 * cool + 1;
       p.x += Math.max(-max, Math.min(max, p.vx * 0.5));
       p.y += Math.max(-max, Math.min(max, p.vy * 0.5));
       p.vx *= 0.5;
       p.vy *= 0.5;
-    }
+    });
   }
   return pos.map((p) => ({ x: p.x, y: p.y }));
 }
 
 export function KnowledgeMap({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
-  const positions = useMemo(() => layout(nodes, edges), [nodes, edges]);
+  const [byCategory, setByCategory] = useState(true);
+  const positions = useMemo(() => layout(nodes, edges, byCategory), [nodes, edges, byCategory]);
+  // カテゴリ名を、そのまとまりの上に薄く表示する
+  const clusterLabels = useMemo(() => {
+    if (!byCategory) return [];
+    const groups = new Map<string, { x: number; y: number; n: number; top: number }>();
+    nodes.forEach((nd, i) => {
+      if (!nd.category) return;
+      const g = groups.get(nd.category) ?? { x: 0, y: 0, n: 0, top: Infinity };
+      g.x += positions[i].x;
+      g.y += positions[i].y;
+      g.n++;
+      g.top = Math.min(g.top, positions[i].y);
+      groups.set(nd.category, g);
+    });
+    return [...groups.entries()].map(([name, g]) => ({ name, x: g.x / g.n, y: g.top - 34 }));
+  }, [byCategory, nodes, positions]);
   const categories = useMemo(() => {
     const counts = new Map<string, number>();
     for (const n of nodes) if (n.category) counts.set(n.category, (counts.get(n.category) ?? 0) + 1);
@@ -138,6 +171,11 @@ export function KnowledgeMap({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
             </marker>
           </defs>
           <g transform={`translate(${bounds.x + bounds.w / 2} ${bounds.y + bounds.h / 2}) scale(${view.scale}) translate(${-(bounds.x + bounds.w / 2) + view.tx} ${-(bounds.y + bounds.h / 2) + view.ty})`}>
+            {clusterLabels.map((c) => (
+              <text key={c.name} x={c.x} y={c.y} textAnchor="middle" fontSize="16" fontWeight={700} fill={colorOf(c.name)} opacity={selected ? 0.25 : 0.75}>
+                {c.name}
+              </text>
+            ))}
             {edges.map((e, i) => {
               const a = positions[idx.get(e.fromId)!];
               const b = positions[idx.get(e.toId)!];
@@ -221,6 +259,10 @@ export function KnowledgeMap({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <label className="flex items-center gap-1.5 font-medium text-foreground">
+          <input type="checkbox" checked={byCategory} onChange={(e) => setByCategory(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+          カテゴリでまとめる
+        </label>
         {categories.map((c) => (
           <span key={c} className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full" style={{ background: colorOf(c) }} />
