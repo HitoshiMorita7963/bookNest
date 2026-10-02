@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form-controls";
@@ -14,7 +14,8 @@ import { BookCover } from "./book-cover";
 import { BOOK_STATUSES, DEFAULT_GENRES, STATUS_LABEL } from "@/lib/constants";
 import { parseIsbn } from "@/lib/isbn";
 import { splitList } from "@/lib/utils";
-import { createBookAction, updateBookAction } from "@/server/actions/books";
+import { classifyBookAction, createBookAction, updateBookAction } from "@/server/actions/books";
+import type { ClassifyInput } from "@/lib/classify";
 import { downscaleImage, uploadImage } from "@/lib/client/image";
 
 const formSchema = z.object({
@@ -64,12 +65,15 @@ export function BookForm({
   defaultValues,
   submitLabel = "保存する",
   compact = false,
+  classifyFrom,
 }: {
   bookId?: string;
   defaultValues?: Partial<BookFormValues>;
   submitLabel?: string;
   /** ISBN 検索結果の確認時は詳細項目を折りたたむ */
   compact?: boolean;
+  /** 新規登録時、この書誌情報からジャンル・タグを自動で入れる */
+  classifyFrom?: ClassifyInput & { authors?: string[]; isbn13?: string | null };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -82,11 +86,35 @@ export function BookForm({
     handleSubmit,
     control,
     setValue,
+    getFieldState,
+    getValues,
     formState: { errors },
   } = useForm<BookFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { ...emptyBookForm, ...defaultValues },
   });
+
+  const [classifying, setClassifying] = useState<"idle" | "running" | "ai" | "rules">("idle");
+  useEffect(() => {
+    if (bookId || !classifyFrom) return;
+    let cancelled = false;
+    queueMicrotask(() => !cancelled && setClassifying("running"));
+    classifyBookAction(classifyFrom)
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.ok || (!res.data.genre && !res.data.tags.length)) return setClassifying("idle");
+        // 提案を待つ間にユーザーが入力していたら上書きしない
+        if (res.data.genre && !getFieldState("genre").isDirty && !getValues("genre")) setValue("genre", res.data.genre);
+        if (res.data.tags.length && !getFieldState("tags").isDirty && !getValues("tags")) setValue("tags", res.data.tags.join("、"));
+        setClassifying(res.data.by);
+      })
+      .catch(() => !cancelled && setClassifying("idle"));
+    return () => {
+      cancelled = true;
+    };
+    // 書誌情報が変わったときだけ提案し直す
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId, classifyFrom]);
 
   const cover = useWatch({ control, name: "coverImage" });
   const title = useWatch({ control, name: "title" });
@@ -188,6 +216,14 @@ export function BookForm({
       <Field label="タグ" htmlFor="tags" hint="「、」区切り（例：哲学、人生）">
         <Input id="tags" {...register("tags")} autoComplete="off" />
       </Field>
+      {classifying !== "idle" ? (
+        <p className="-mt-3 flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+          {classifying === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5 text-primary" />}
+          {classifying === "running"
+            ? "ジャンル・タグを提案しています…"
+            : `ジャンル・タグを${classifying === "ai" ? "AIが" : ""}自動で入力しました。自由に変更できます。`}
+        </p>
+      ) : null}
 
       {!showMore ? (
         <Button type="button" variant="ghost" className="w-full" onClick={() => setShowMore(true)}>

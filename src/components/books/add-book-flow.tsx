@@ -23,6 +23,7 @@ export function AddBookFlow({ initialMode = "search", initialQuery = "" }: { ini
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<BookMetadata[] | null>(null);
   const [selected, setSelected] = useState<Partial<BookFormValues> | null>(null);
+  const [selectedMeta, setSelectedMeta] = useState<BookMetadata | null>(null);
   const [notFoundIsbn, setNotFoundIsbn] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -45,9 +46,11 @@ export function AddBookFlow({ initialMode = "search", initialQuery = "" }: { ini
           setNotFoundIsbn(isbn);
           toast.warning("書籍情報が見つかりませんでした。手動で入力できます。");
           setSelected({ isbn });
+          setSelectedMeta(null);
           return;
         }
         setSelected({ ...metadataToForm(res.data.metadata), status: "WANT_TO_READ" });
+        setSelectedMeta(res.data.metadata);
       });
     },
     [router],
@@ -87,7 +90,7 @@ export function AddBookFlow({ initialMode = "search", initialQuery = "" }: { ini
         ) : (
           <p className="text-sm text-muted-foreground">内容を確認して登録してください。ステータスもここで選べます。</p>
         )}
-        <BookForm defaultValues={selected} submitLabel="本棚に追加" compact />
+        <BookForm defaultValues={selected} submitLabel="本棚に追加" compact classifyFrom={selectedMeta ?? undefined} />
       </div>
     );
   }
@@ -146,7 +149,10 @@ export function AddBookFlow({ initialMode = "search", initialQuery = "" }: { ini
                   <button
                     type="button"
                     className="flex w-full gap-3 p-3 text-left hover:bg-accent/60"
-                    onClick={() => setSelected({ ...metadataToForm(r), status: "WANT_TO_READ" })}
+                    onClick={() => {
+                      setSelected({ ...metadataToForm(r), status: "WANT_TO_READ" });
+                      setSelectedMeta(r);
+                    }}
                   >
                     <div className="w-12 shrink-0">
                       <BookCover src={r.coverImage} title={r.title} size="xs" />

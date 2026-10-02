@@ -6,6 +6,7 @@ import type { Db } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
 import { analyzeTrends, type InsightPeriod } from "@/server/services/insights";
 import { getProvider } from "./provider";
+import { FICTION_TAGS, GENRES, NONFICTION_TAGS, type Classification, type ClassifyInput } from "@/lib/classify";
 
 /* ---------- 読書メモの整理 ---------- */
 export interface OrganizedNotes {
@@ -137,4 +138,47 @@ export async function summarizeTrends(db: Db, period: InsightPeriod) {
       additionalProperties: false,
     },
   });
+}
+
+/* ---------- 本のジャンル・タグの提案 ---------- */
+
+const CLASSIFY_SCHEMA = {
+  type: "object",
+  properties: {
+    genre: { type: "string", enum: [...GENRES] },
+    tags: { type: "array", items: { type: "string" } },
+  },
+  required: ["genre", "tags"],
+  additionalProperties: false,
+};
+
+/** 書誌情報からジャンルとタグを選ぶ。ルールベースの推定結果（draft）を参考として渡す */
+export async function suggestGenreTags(input: ClassifyInput & { authors?: string[] }, draft: Classification): Promise<Classification> {
+  const provider = getProvider();
+  const lines = [
+    `タイトル：${input.title}`,
+    input.subtitle ? `サブタイトル：${input.subtitle}` : "",
+    input.authors?.length ? `著者：${input.authors.join("、")}` : "",
+    input.publisher ? `出版社：${input.publisher}` : "",
+    input.seriesTitle ? `叢書・レーベル：${input.seriesTitle}` : "",
+    input.ndc ? `日本十進分類（NDC）：${input.ndc}` : "",
+    input.subjects?.length ? `件名：${input.subjects.join("、")}` : "",
+    input.description ? `内容紹介：${input.description.slice(0, 1500)}` : "",
+    `参考（キーワードからの機械的な推定）：ジャンル=${draft.genre ?? "不明"}、タグ=${draft.tags.join("、") || "なし"}`,
+  ].filter(Boolean);
+  const r = await provider.json<Classification>({
+    system: [
+      "あなたは書店員です。本の書誌情報から、読書管理アプリの本棚で使う「ジャンル」と「タグ」を選びます。",
+      `ジャンルは次から1つ：${GENRES.join("、")}。新書レーベル（〇〇新書）のノンフィクションは「新書」にしてください。`,
+      `小説のタグは主に次から：${FICTION_TAGS.join("、")}。`,
+      `小説以外のタグは主に次から：${NONFICTION_TAGS.join("、")}。`,
+      "タグは本の内容をよく表すものを1〜4個。候補にぴったりのものが無いときだけ、短い一般的な言葉（10文字以内）を使ってかまいません。",
+      "書誌情報から判断できないことを推測で付けすぎないでください。",
+    ].join("\n"),
+    prompt: lines.join("\n"),
+    schema: CLASSIFY_SCHEMA,
+  });
+  const genre = (GENRES as readonly string[]).includes(r.genre ?? "") ? r.genre : draft.genre;
+  const tags = Array.from(new Set((r.tags ?? []).map((t) => t.trim().slice(0, 20)).filter(Boolean))).slice(0, 4);
+  return { genre, tags: tags.length ? tags : draft.tags };
 }

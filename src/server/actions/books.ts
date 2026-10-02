@@ -5,7 +5,10 @@ import { prisma } from "@/lib/db";
 import { toUserError, type ActionResult } from "@/lib/errors";
 import type { BookInput } from "@/lib/validators";
 import * as books from "@/server/services/books";
-import { bookMetadataService, type BookMetadata } from "@/server/services/metadata";
+import { bookMetadataService, ndlProvider, type BookMetadata } from "@/server/services/metadata";
+import { classifyByRules, type Classification, type ClassifyInput } from "@/lib/classify";
+import { aiAvailable } from "@/server/ai/librarian";
+import { suggestGenreTags } from "@/server/ai/features";
 import { parseIsbn } from "@/lib/isbn";
 import { syncBookRowsLater, syncSheetLater } from "@/server/sheets-sync";
 
@@ -108,6 +111,44 @@ export async function unlinkRelatedBookAction(a: string, b: string): Promise<Act
     revalidateBooks(a);
     revalidatePath(`/books/${b}`);
     return { ok: true, data: undefined };
+  } catch (e) {
+    return toUserError(e);
+  }
+}
+
+/** 登録時にジャンル・タグを自動で提案する（AI が使えれば AI、使えなければキーワードと分類番号から推定） */
+export async function classifyBookAction(input: ClassifyInput & { authors?: string[]; isbn13?: string | null }): Promise<ActionResult<Classification & { by: "ai" | "rules" }>> {
+  try {
+    const meta: ClassifyInput & { authors?: string[] } = {
+      title: String(input.title ?? "").slice(0, 300),
+      subtitle: input.subtitle?.slice(0, 300) ?? null,
+      description: input.description?.slice(0, 3000) ?? null,
+      seriesTitle: input.seriesTitle?.slice(0, 200) ?? null,
+      publisher: input.publisher?.slice(0, 200) ?? null,
+      ndc: input.ndc?.slice(0, 20) ?? null,
+      subjects: (input.subjects ?? []).slice(0, 10).map((s) => String(s).slice(0, 100)),
+      authors: (input.authors ?? []).slice(0, 10).map((s) => String(s).slice(0, 100)),
+    };
+    if (!meta.title) return { ok: true, data: { genre: null, tags: [], by: "rules" } };
+    // 分類番号がなければ国立国会図書館から取得する
+    const isbn = input.isbn13 ? parseIsbn(input.isbn13)?.isbn13 : null;
+    if (!meta.ndc && isbn) {
+      const ndl = await ndlProvider.lookupIsbn(isbn).catch(() => null);
+      if (ndl) {
+        meta.ndc = ndl.ndc ?? null;
+        if (!meta.subjects?.length) meta.subjects = ndl.subjects ?? [];
+        if (!meta.seriesTitle) meta.seriesTitle = ndl.seriesTitle ?? null;
+      }
+    }
+    const draft = classifyByRules(meta);
+    if ((await aiAvailable(prisma)).ok) {
+      try {
+        return { ok: true, data: { ...(await suggestGenreTags(meta, draft)), by: "ai" } };
+      } catch (e) {
+        console.warn("[classify] AI failed, using rules:", (e as Error).message);
+      }
+    }
+    return { ok: true, data: { ...draft, by: "rules" } };
   } catch (e) {
     return toUserError(e);
   }
