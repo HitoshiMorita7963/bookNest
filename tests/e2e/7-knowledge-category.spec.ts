@@ -26,3 +26,19 @@ test("知識のカテゴリをまとめて名前変更・統合できる", async
   await expect(section.getByText("2件", { exact: true })).toBeVisible();
   await expect(section.getByText("需要と供給")).toBeVisible();
 });
+
+test("知識の入力画面でカテゴリを提案して設定できる", async ({ page }) => {
+  await page.goto("/knowledge/new");
+  await page.getByLabel("タイトル（得た知識・考え方）").fill("コントロールの二分法");
+  await page.getByLabel("内容").fill("自分で変えられることと変えられないことを区別する");
+  await page.getByLabel("カテゴリ").fill("E2E哲学");
+  await page.getByRole("button", { name: "保存する" }).click();
+  await expect(page).toHaveURL(/\/knowledge\/c[a-z0-9]+$/);
+
+  await page.goto("/knowledge/new");
+  await page.getByLabel("タイトル（得た知識・考え方）").fill("受け入れること");
+  await page.getByLabel("内容").fill("変えられないことは受け入れ、自分で変えられることに集中する");
+  await page.getByRole("button", { name: "カテゴリを提案" }).click();
+  await page.getByRole("button", { name: "E2E哲学", exact: true }).click();
+  await expect(page.getByLabel("カテゴリ")).toHaveValue("E2E哲学");
+});

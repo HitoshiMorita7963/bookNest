@@ -245,3 +245,8 @@ export function classifyByRules(input: ClassifyInput): Classification {
 export function isFictionGenre(genre: string | null | undefined) {
   return !!genre && FICTION_GENRES.has(genre);
 }
+
+/** 文章に出てくる話題（教養・ビジネス系のキーワードから。知識のカテゴリ提案に使う） */
+export function topicsFromText(text: string): string[] {
+  return NONFICTION_RULES.filter(([, re]) => re.test(text)).map(([tag]) => tag);
+}

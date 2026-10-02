@@ -188,3 +188,70 @@ export async function suggestGenreTags(input: ClassifyInput & { authors?: string
   const seriesNumber = typeof r.seriesNumber === "number" && r.seriesNumber > 0 && r.seriesNumber < 10000 ? r.seriesNumber : null;
   return { genre, tags: tags.length ? tags : draft.tags, seriesTitle, seriesNumber: seriesTitle ? seriesNumber : null };
 }
+
+/* ---------- 知識のカテゴリ提案 ---------- */
+const CATEGORY_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          categories: {
+            type: "array",
+            items: { type: "object", properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"], additionalProperties: false },
+          },
+        },
+        required: ["id", "categories"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["items"],
+  additionalProperties: false,
+};
+
+/**
+ * 知識ノートのカテゴリを提案する（複数件まとめて1回で）。既存カテゴリを優先し、ルールベースの候補を参考として渡す。
+ * 返り値は id → 候補（最大3件）
+ */
+export async function suggestKnowledgeCategories(
+  items: { id: string; title: string; content: string; tags: string[]; books: string[]; hints: string[] }[],
+  existing: { name: string; count: number }[],
+): Promise<Map<string, { name: string; reason: string }[]>> {
+  const provider = getProvider();
+  const r = await provider.json<{ items: { id: string; categories: { name: string; reason: string }[] }[] }>({
+    system: [
+      "あなたは読書ノートの整理を手伝うアシスタントです。ユーザーが本から得た「知識ノート」に付けるカテゴリを提案します。",
+      `ユーザーが既に使っているカテゴリ（件数）：${existing.length ? existing.map((c) => `${c.name}（${c.count}）`).join("、") : "なし"}`,
+      "表記ゆれでカテゴリが増えないよう、合うものがあれば既存のカテゴリを優先してください。合うものが無いときだけ、短く一般的な分野名（例：経済・哲学・心理学・歴史・科学・テクノロジー・健康・ビジネス・芸術）を新しく提案してください。",
+      "各ノートに1〜3個、ふさわしい順に。reason は20文字程度の日本語で理由を書いてください。",
+      "参考候補はキーワードなどから機械的に出したものです。正しいとは限りません。",
+    ].join("\n"),
+    prompt: items
+      .map((it) =>
+        [
+          `## id: ${it.id}`,
+          `タイトル：${it.title}`,
+          it.content ? `内容：${it.content.slice(0, 600)}` : "",
+          it.tags.length ? `タグ：${it.tags.join("、")}` : "",
+          it.books.length ? `関連する本：${it.books.map((b) => `『${b}』`).join("、")}` : "",
+          it.hints.length ? `参考候補：${it.hints.join("、")}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      )
+      .join("\n\n"),
+    schema: CATEGORY_SCHEMA,
+  });
+  const out = new Map<string, { name: string; reason: string }[]>();
+  for (const it of r.items ?? []) {
+    const cats = (it.categories ?? [])
+      .map((c) => ({ name: (c.name ?? "").normalize("NFKC").trim().slice(0, 60), reason: (c.reason ?? "").trim().slice(0, 60) }))
+      .filter((c) => c.name);
+    out.set(it.id, cats.slice(0, 3));
+  }
+  return out;
+}

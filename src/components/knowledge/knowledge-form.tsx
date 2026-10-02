@@ -9,6 +9,7 @@ import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { Sheet, SheetContent } from "@/components/ui/overlays";
 import { BookPickerSheet } from "@/components/books/book-picker";
 import { createKnowledgeAction, pickQuotesAction, updateKnowledgeAction } from "@/server/actions/knowledge";
+import { CategorySuggestions } from "./category-suggest";
 import { splitList, truncate } from "@/lib/utils";
 import { quoted } from "@/lib/quote-marks";
 
@@ -98,6 +99,11 @@ export function KnowledgeForm({
           <Input id="k-tags" value={v.tags} onChange={(e) => setV({ ...v, tags: e.target.value })} />
         </Field>
       </div>
+      <CategorySuggestions
+        input={{ title: v.title, content: v.content, tags: splitList(v.tags), bookIds: v.books.map((b) => b.id), quoteIds: v.quotes.map((q) => q.id), excludeId: id ?? null }}
+        current={v.category}
+        onPick={(name) => setV({ ...v, category: name })}
+      />
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { truncate } from "@/lib/utils";
 import { ChipLink } from "@/components/ui/chip-link";
 import { RenameCategoryButton } from "@/components/knowledge/category-rename";
+import { SuggestUncategorizedButton } from "@/components/knowledge/category-suggest";
 
 export const metadata = { title: "知識" };
 
@@ -143,6 +144,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
                           このカテゴリだけ
                         </Link>
                       ) : null}
+                      {!g.category ? <SuggestUncategorizedButton /> : null}
                       {/* 検索などで絞り込んでいても、変更はそのカテゴリの知識すべてが対象 */}
                       <RenameCategoryButton
                         category={g.category}
