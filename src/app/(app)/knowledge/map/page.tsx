@@ -8,7 +8,8 @@ import { EmptyState, SectionTitle } from "@/components/books/bits";
 
 export const metadata = { title: "知識マップ" };
 
-export default async function KnowledgeMapPage() {
+export default async function KnowledgeMapPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+  const { category } = await searchParams;
   const graph = await getKnowledgeGraph(prisma);
   const title = new Map(graph.nodes.map((n) => [n.id, n.title]));
   const explicit = graph.edges.filter((e) => !e.implicit);
@@ -19,11 +20,14 @@ export default async function KnowledgeMapPage() {
         <EmptyState icon="🗺" title="知識ノートがまだありません" description="知識ノートを作り、知識同士をつなげると、ここにマップとして表示されます。" />
       ) : (
         <div className="space-y-8">
-          <KnowledgeMap nodes={graph.nodes} edges={graph.edges} />
-          <p className="text-sm text-muted-foreground">ドラッグで移動、ボタンやホイールで拡大・縮小できます。知識をタップすると、つながりが強調されます。</p>
+          <KnowledgeMap nodes={graph.nodes} edges={graph.edges} initialCategory={category ?? null} />
           {explicit.length ? (
-            <section>
-              <SectionTitle>つながり一覧</SectionTitle>
+            <details className="group" open={explicit.length <= 20}>
+              <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <SectionTitle>
+                  つながり一覧 <span className="text-sm font-normal text-muted-foreground">{explicit.length}本</span>
+                </SectionTitle>
+              </summary>
               <ul className="divide-y rounded-2xl border bg-card">
                 {explicit.map((e) => (
                   <li key={e.fromId + e.toId} className="flex flex-wrap items-center gap-2 p-3 text-sm">
@@ -38,7 +42,7 @@ export default async function KnowledgeMapPage() {
                   </li>
                 ))}
               </ul>
-            </section>
+            </details>
           ) : null}
         </div>
       )}
