@@ -175,25 +175,31 @@ export async function knowledgeFacets(db: Db) {
 }
 
 /** 知識マップ用：ノードとエッジ。共通の本で結ばれる暗黙のつながりも含める */
+/** 「同じ本」の暗黙のつながりを作るのは、その本から得た知識がこの件数以下のときだけ（多いと線だらけになるため） */
+export const IMPLICIT_BOOK_LIMIT = 6;
+
+/** 知識マップ用：ノードとエッジ。少数の知識しかない本で結ばれる暗黙のつながりも含める */
 export async function getKnowledgeGraph(db: Db) {
   const notes = await db.knowledgeNote.findMany({
     select: { id: true, title: true, category: true, books: { select: { bookId: true } }, _count: { select: { quotes: true, books: true } } },
   });
   const links = await db.knowledgeLink.findMany({ select: { fromId: true, toId: true, label: true } });
   const explicit = new Set(links.map((l) => [l.fromId, l.toId].sort().join("|")));
-  const implicit: { fromId: string; toId: string; label: string | null; implicit: true }[] = [];
-  for (let i = 0; i < notes.length; i++) {
-    for (let j = i + 1; j < notes.length; j++) {
-      const a = notes[i];
-      const b = notes[j];
-      const shared = a.books.some((x) => b.books.some((y) => y.bookId === x.bookId));
-      const key = [a.id, b.id].sort().join("|");
-      if (shared && !explicit.has(key)) implicit.push({ fromId: a.id, toId: b.id, label: "同じ本", implicit: true });
+  const byBook = new Map<string, string[]>();
+  for (const n of notes) for (const b of n.books) byBook.set(b.bookId, [...(byBook.get(b.bookId) ?? []), n.id]);
+  const implicit = new Map<string, { fromId: string; toId: string; label: string | null; implicit: true }>();
+  for (const ids of byBook.values()) {
+    if (ids.length < 2 || ids.length > IMPLICIT_BOOK_LIMIT) continue;
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const key = [ids[i], ids[j]].sort().join("|");
+        if (!explicit.has(key) && !implicit.has(key)) implicit.set(key, { fromId: ids[i], toId: ids[j], label: "同じ本", implicit: true });
+      }
     }
   }
   return {
-    nodes: notes.map((n) => ({ id: n.id, title: n.title, category: n.category, weight: n._count.books + n._count.quotes })),
-    edges: [...links.map((l) => ({ ...l, implicit: false as const })), ...implicit],
+    nodes: notes.map((n) => ({ id: n.id, title: n.title, category: n.category?.trim() || null, weight: n._count.books + n._count.quotes })),
+    edges: [...links.map((l) => ({ ...l, implicit: false as const })), ...implicit.values()],
   };
 }
 

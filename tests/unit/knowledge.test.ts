@@ -105,3 +105,18 @@ describe("renaming knowledge categories", () => {
     await expect(renameKnowledgeCategory(db, "存在しない", "x")).rejects.toThrow();
   });
 });
+
+describe("knowledge map graph", () => {
+  it("links knowledge from the same book only when the book has a few notes", async () => {
+    const small = await createBook(db, { title: "小さな本" });
+    const big = await createBook(db, { title: "大きな本" });
+    await createKnowledge(db, { title: "s1", bookIds: [small.id] });
+    await createKnowledge(db, { title: "s2", bookIds: [small.id] });
+    for (let i = 0; i < 8; i++) await createKnowledge(db, { title: `b${i}`, bookIds: [big.id] });
+    const g = await getKnowledgeGraph(db);
+    const implicit = g.edges.filter((e) => e.implicit);
+    // 小さな本の2件だけがつながり、8件ある本では「同じ本」の線を作らない
+    expect(implicit).toHaveLength(1);
+    expect(g.nodes).toHaveLength(10);
+  });
+});
