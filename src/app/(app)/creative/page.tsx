@@ -28,6 +28,17 @@ export default async function CreativeHomePage() {
           </Link>
         </div>
 
+        <Link href="/creative/knowledge" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-accent/40">
+          <span className="text-2xl" aria-hidden>
+            🧠
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">創作知識</span>
+            <span className="block text-sm text-muted-foreground">物語の型・人物・感情・演出などの知識を、読書の具体例と自分の作品につなげる</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+        </Link>
+
         <section>
           <SectionTitle>📚 小説プロジェクト</SectionTitle>
           {projects.length === 0 ? (

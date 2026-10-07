@@ -252,3 +252,28 @@ export const linkInputSchema = z.object({
   purpose: longText(60),
 });
 export type LinkInput = z.input<typeof linkInputSchema>;
+
+/* ---------------- 創作知識 ---------------- */
+import { CK_CATEGORIES } from "./creative-knowledge";
+
+const ckText = (max: number) => z.string().max(max, `${max}文字以内で入力してください`).default("").transform((v) => v.trim());
+
+export const creativeKnowledgeInputSchema = z
+  .object({
+    title: z.string().trim().min(1, "タイトルを入力してください").max(120, "120文字以内で入力してください"),
+    category: z.enum(CK_CATEGORIES, { message: "カテゴリを選んでください" }),
+    /** 2つ目以降のカテゴリ */
+    extraCategories: z.array(z.enum(CK_CATEGORIES)).max(CK_CATEGORIES.length).default([]),
+    subCategory: optText(60),
+    summary: ckText(1000),
+    definition: ckText(5000),
+    effects: ckText(5000),
+    patterns: ckText(5000),
+    flow: ckText(3000),
+    usage: ckText(5000),
+    cautions: ckText(5000),
+    aliases: ckText(2000),
+    tags: nameList,
+  })
+  .transform((v) => ({ ...v, extraCategories: Array.from(new Set(v.extraCategories.filter((c) => c !== v.category))) }));
+export type CreativeKnowledgeInput = z.input<typeof creativeKnowledgeInputSchema>;

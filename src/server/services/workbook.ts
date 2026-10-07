@@ -5,6 +5,7 @@
  */
 import ExcelJS from "exceljs";
 import type { Db } from "@/lib/db";
+import { ckCategoryLabel } from "@/lib/creative-knowledge";
 import {
   CREATIVE_CATEGORY_LABEL,
   GOAL_LABEL,
@@ -107,6 +108,11 @@ export async function buildSheets(db: Db): Promise<Sheet[]> {
     db.bookRelation.findMany({ include: { from: { select: { title: true } }, to: { select: { title: true } } } }),
   ]);
 
+  const cks = await db.creativeKnowledge.findMany({
+    include: { categories: { select: { category: true } }, tags: { include: { tag: { select: { name: true } } } } },
+    orderBy: [{ category: "asc" }, { title: "asc" }],
+  });
+
   const sheets: Sheet[] = [
     {
       name: "本",
@@ -206,6 +212,32 @@ export async function buildSheets(db: Db): Promise<Sheet[]> {
         jst(n.createdAt),
         jst(n.updatedAt),
         n.id,
+      ]),
+    },
+    {
+      name: "創作知識",
+      headers: ["タイトル", "カテゴリ", "ほかのカテゴリ", "サブカテゴリ", "概要", "定義・説明", "物語上の効果", "主なパターン", "感情・展開の流れ", "使い方", "注意点", "別名", "タグ", "自分のメモ", "お気に入り", "作成元", "登録日", "更新日", "ID"],
+      widths: [22, 12, 16, 12, 40, 40, 30, 30, 24, 30, 30, 20, 16, 30, 8, 10, 16, 16, 26],
+      rows: cks.map((k) => [
+        k.title,
+        ckCategoryLabel(k.category),
+        join(k.categories.map((c) => ckCategoryLabel(c.category))),
+        k.subCategory,
+        k.summary || null,
+        k.definition || null,
+        k.effects || null,
+        k.patterns || null,
+        k.flow || null,
+        k.usage || null,
+        k.cautions || null,
+        k.aliases || null,
+        join(k.tags.map((t) => t.tag.name)),
+        k.myNote || null,
+        k.isFavorite ? "★" : null,
+        k.origin === "seed" ? "サンプル" : "自分で作成",
+        jst(k.createdAt),
+        jst(k.updatedAt),
+        k.id,
       ]),
     },
     {

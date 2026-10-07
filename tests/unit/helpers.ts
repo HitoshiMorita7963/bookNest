@@ -5,6 +5,12 @@ export const db = new PrismaClient({ datasourceUrl: "file:../tests/.tmp/test.db"
 /** 全テーブルを空にする（外部キーの順序に注意） */
 export async function resetDb() {
   await db.creativeLink.deleteMany();
+  await db.creativeKnowledgeSource.deleteMany();
+  await db.creativeKnowledgeReference.deleteMany();
+  await db.creativeKnowledgeRelation.deleteMany();
+  await db.creativeKnowledgeTag.deleteMany();
+  await db.creativeKnowledgeCategory.deleteMany();
+  await db.creativeKnowledge.deleteMany();
   await db.creativeNoteTag.deleteMany();
   await db.creativeNote.deleteMany();
   await db.characterRelationship.deleteMany();
