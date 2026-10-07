@@ -6,6 +6,7 @@ import { NotFoundError, toUserError, type ActionResult } from "@/lib/errors";
 import type { CreativeKnowledgeInput } from "@/lib/validators";
 import * as ck from "@/server/services/creative-knowledge";
 import * as refs from "@/server/services/creative-knowledge-references";
+import * as seed from "@/server/services/creative-knowledge-seed";
 import type { CkReferenceKind } from "@/lib/creative-knowledge";
 
 async function run<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
@@ -89,4 +90,10 @@ export async function toggleCkFavoriteAction(id: string) {
 
 export async function setCkMyNoteAction(id: string, note: string) {
   return run(() => ck.setCkMyNote(prisma, id, String(note ?? "")));
+}
+
+/* ---------------- 初期データ（サンプル） ---------------- */
+
+export async function syncCkSeedsAction() {
+  return run(() => seed.syncCkSeeds(prisma));
 }
