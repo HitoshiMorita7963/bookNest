@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "./helpers";
 import { createCreativeKnowledge } from "@/server/services/creative-knowledge";
-import { searchCreativeKnowledge } from "@/server/services/creative-knowledge-search";
+import { contentWords, searchCreativeKnowledge } from "@/server/services/creative-knowledge-search";
 import type { CkCategory } from "@/lib/creative-knowledge";
 
 beforeEach(resetDb);
@@ -56,6 +56,17 @@ describe("creative knowledge search", () => {
     const onlyCharacter = await searchCreativeKnowledge(db, "敵が仲間になる", { category: "CHARACTER" });
     expect(onlyCharacter.every((h) => h.item.category === "CHARACTER")).toBe(true);
     expect((await searchCreativeKnowledge(db, "成長", { tag: "成長", withRelated: false })).map((h) => h.item.title).sort()).toEqual(["敵から味方へ", "贖罪"].sort());
+  });
+
+  it("finds knowledge from a sentence (content words), not only from keywords", async () => {
+    await seed();
+    await k("説明の入れ方", "EXPRESSION", { summary: "設定の説明を、物語の流れを止めずに伝える工夫。" });
+    expect(contentWords("読者を驚かせたい")).toEqual(["読者", "驚"]);
+    expect(contentWords("ヒロインの登場シーン")).toEqual(["ヒロイン", "登場シーン"]);
+    expect((await searchCreativeKnowledge(db, "説明が長い"))[0]?.item.title).toBe("説明の入れ方");
+    expect((await searchCreativeKnowledge(db, "張った伏線を回収したい"))[0]?.item.title).toBe("伏線回収");
+    // 1文字の語だけの弱い一致では出さない
+    expect(await searchCreativeKnowledge(db, "最後に読者を驚かせたい")).toEqual([]);
   });
 
   it("returns nothing for empty or unrelated queries", async () => {

@@ -22,6 +22,16 @@ export interface CkSearchHit {
 
 const norm = (s: string) => s.normalize("NFKC").toLowerCase().trim();
 
+/**
+ * 文で入力されたときの内容語（漢字・カタカナ・英数字のまとまり）。
+ * 例：「読者を驚かせたい」→ 読者・驚、「説明が長い」→ 説明・長
+ * 1文字の語は多くの説明に含まれやすいので、呼び出し側で重みを下げる。
+ */
+export function contentWords(query: string): string[] {
+  const words = query.match(/[\p{Script=Han}\p{Script=Katakana}ー々a-z0-9]+/gu) ?? [];
+  return [...new Set(words)].slice(0, 8);
+}
+
 /** a と b の 2-gram の重なり（b の長さに対する割合。短いクエリでも効くよう、小さい方を分母にする） */
 function overlap(query: Set<string>, text: string): number {
   if (query.size === 0 || !text) return 0;
@@ -40,6 +50,8 @@ export async function searchCreativeKnowledge(
   const query = norm(q).slice(0, 100);
   if (!query) return [];
   const terms = query.split(/\s+/).filter(Boolean).slice(0, 5);
+  // 「読者を驚かせたい」のような文でも探せるよう、内容語も単語として使う（1文字の語は重みを半分に）
+  const words = contentWords(query).filter((w) => !terms.includes(w));
   const qGrams = bigrams(query);
 
   const items = await db.creativeKnowledge.findMany({
@@ -88,6 +100,14 @@ export async function searchCreativeKnowledge(
       if (refs.includes(t)) note(1.5, "参考読書のメモに一致");
       // 自分の言葉で書いたメモは、探すときの手がかりとして強めに扱う
       if (mine.includes(t)) note(3, "自分のメモに一致");
+    }
+    for (const w of words) {
+      const weight = w.length >= 2 ? 1 : 0.5;
+      if (title.includes(w)) note(5 * weight, "タイトルに一致");
+      if (aliases.some((a) => a.includes(w))) note(4 * weight, "別名に一致");
+      if (tags.some((tag) => tag.includes(w))) note(3 * weight, "タグに一致");
+      if (body.includes(w)) note(1.5 * weight, "説明に一致");
+      if (mine.includes(w)) note(3 * weight, "自分のメモに一致");
     }
 
     // 言い換え・語順の違い（2-gram の重なり）

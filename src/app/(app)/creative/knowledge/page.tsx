@@ -26,7 +26,7 @@ function href(sp: SP, patch: Partial<SP>) {
 const NO_SUB = "（サブカテゴリなし）";
 const OTHER_PRIMARY = "ほかのカテゴリの知識";
 
-/** カテゴリ表示のとき：サブカテゴリごとにまとめる（候補の順 → それ以外 → なし → ほかのカテゴリが主の知識） */
+/** カテゴリ表示のとき：サブカテゴリごとにまとめる（候補の順 → それ以外 → その他 → なし → ほかのカテゴリが主の知識） */
 function groupBySub(items: CkListItem[], category: CkCategory) {
   const order = CK_CATEGORY_INFO[category].subCategories;
   const groups = new Map<string, CkListItem[]>();
@@ -34,7 +34,7 @@ function groupBySub(items: CkListItem[], category: CkCategory) {
     const key = k.category !== category ? OTHER_PRIMARY : (k.subCategory ?? NO_SUB);
     groups.set(key, [...(groups.get(key) ?? []), k]);
   }
-  const rank = (name: string) => (name === OTHER_PRIMARY ? 3000 : name === NO_SUB ? 2000 : order.includes(name) ? order.indexOf(name) : 1000);
+  const rank = (name: string) => (name === OTHER_PRIMARY ? 3000 : name === NO_SUB ? 2000 : name === "その他" ? 1500 : order.includes(name) ? order.indexOf(name) : 1000);
   return [...groups.entries()].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b, "ja"));
 }
 
@@ -56,8 +56,12 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
     filtered ? Promise.resolve([]) : listCreativeKnowledge(prisma, { favorite: true }),
     filtered ? Promise.resolve(null) : ckSeedStatus(prisma),
   ]);
-  const grouped = category && !sp.sub && !sp.tag && !query && !favorite ? groupBySub(items, category) : null;
-  const shown = query ? hits.map((h) => ({ k: h.item, note: h.via ? `🔗 ${h.reason}` : h.reason })) : items.map((k) => ({ k, note: undefined as string | undefined }));
+  // サブカテゴリごとの見出しは、1つの見出しに平均2件以上あるときだけ（1件ずつだと見出しばかりが並んで読みにくい）
+  const groups = category && !sp.sub && !sp.tag && !query && !favorite ? groupBySub(items, category) : null;
+  const grouped = groups && items.length >= groups.length * 2 ? groups : null;
+  // カテゴリ表示で見出しを付けないとき：見出しと同じ順（このカテゴリが主の知識 → サブカテゴリの順）に並べる
+  const ordered = groups && !grouped ? groups.flatMap(([, list]) => list) : items;
+  const shown = query ? hits.map((h) => ({ k: h.item, note: h.via ? `🔗 ${h.reason}` : h.reason })) : ordered.map((k) => ({ k, note: undefined as string | undefined }));
   const newHref = `/creative/knowledge/new${category ? `?category=${category}` : ""}`;
 
   return (

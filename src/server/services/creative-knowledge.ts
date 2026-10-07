@@ -6,8 +6,9 @@ import type { Prisma } from "@prisma/client";
 import type { Db } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
 import { creativeKnowledgeInputSchema, type CreativeKnowledgeInput } from "@/lib/validators";
-import { CK_CATEGORIES, CK_RELATION_LABEL, CK_RELATION_REVERSE_LABEL, CK_RELATION_TYPES, type CkCategory, type CkRelationType } from "@/lib/creative-knowledge";
+import { CK_CATEGORIES, CK_CATEGORY_INFO, isCkCategory, CK_RELATION_LABEL, CK_RELATION_REVERSE_LABEL, CK_RELATION_TYPES, type CkCategory, type CkRelationType } from "@/lib/creative-knowledge";
 import { cleanupOrphans, upsertTags } from "./books";
+import { getSettings, updateSettings } from "./settings";
 
 type Tx = Prisma.TransactionClient | Db;
 
@@ -42,12 +43,18 @@ export async function updateCreativeKnowledge(db: Db, id: string, input: Creativ
 }
 
 export async function deleteCreativeKnowledge(db: Db, id: string) {
+  const cur = await db.creativeKnowledge.findUnique({ where: { id }, select: { origin: true, slug: true } });
   await db.$transaction(async (tx) => {
     // CreativeLink.ckId は外部キーなしなので、作品などへの紐付けをここで消す
     await tx.creativeLink.deleteMany({ where: { ckId: id } });
     await tx.creativeKnowledge.delete({ where: { id } });
     await cleanupOrphans(tx);
   });
+  // 削除したサンプルは、「基本の創作知識」をもう一度読み込んでも戻さない
+  if (cur?.origin === "seed" && cur.slug) {
+    const { ckSeedDeleted } = await getSettings(db);
+    if (!ckSeedDeleted.includes(cur.slug)) await updateSettings(db, { ckSeedDeleted: [...ckSeedDeleted, cur.slug] });
+  }
 }
 
 export const ckListInclude = {
@@ -118,13 +125,15 @@ export async function ckTags(db: Db) {
   return tags.map((t) => ({ name: t.name, count: t._count.creativeKnowledge })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja"));
 }
 
-/** カテゴリ内のサブカテゴリと件数（主カテゴリがそのカテゴリのもの） */
+/** カテゴリ内のサブカテゴリと件数（主カテゴリがそのカテゴリのもの）。並びはカテゴリの候補の順 → それ以外（件数の多い順）→「その他」 */
 export async function ckSubCategories(db: Db, category: string) {
   const rows = await db.creativeKnowledge.groupBy({ by: ["subCategory"], where: { category }, _count: { _all: true } });
+  const order: string[] = isCkCategory(category) ? CK_CATEGORY_INFO[category].subCategories : [];
+  const rank = (name: string) => (name === "その他" ? 2000 : order.includes(name) ? order.indexOf(name) : 1000);
   return rows
     .filter((r) => r.subCategory)
     .map((r) => ({ name: r.subCategory!, count: r._count._all }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja"));
+    .sort((a, b) => rank(a.name) - rank(b.name) || b.count - a.count || a.name.localeCompare(b.name, "ja"));
 }
 
 /* ---------------- 知識同士の関係 ---------------- */

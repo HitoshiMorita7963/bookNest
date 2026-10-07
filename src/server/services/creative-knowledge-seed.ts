@@ -8,6 +8,7 @@ import type { Db } from "@/lib/db";
 import type { CreativeKnowledgeInput } from "@/lib/validators";
 import { CK_SEEDS, type CkSeed } from "@/server/data/creative-knowledge-seed";
 import { createCreativeKnowledge, updateCreativeKnowledge } from "./creative-knowledge";
+import { getSettings } from "./settings";
 
 function toInput(s: CkSeed): CreativeKnowledgeInput {
   const join = (xs?: string[]) => (xs ?? []).join("\n");
@@ -54,20 +55,25 @@ export interface CkSeedStatus {
   outdated: number;
   /** 自分で編集したので更新しないもの */
   edited: number;
+  /** 自分で削除したので読み込まないもの */
+  deleted: number;
 }
 
 export async function ckSeedStatus(db: Db): Promise<CkSeedStatus> {
   const existing = new Map((await loadExisting(db)).map((k) => [k.slug!, k]));
+  const deletedSlugs = new Set((await getSettings(db)).ckSeedDeleted);
   let missing = 0;
   let outdated = 0;
   let edited = 0;
+  let deleted = 0;
   for (const s of CK_SEEDS) {
     const k = existing.get(s.slug);
-    if (!k) missing++;
+    if (!k && deletedSlugs.has(s.slug)) deleted++;
+    else if (!k) missing++;
     else if (k.userEdited) edited++;
     else if (!isSame(k, s)) outdated++;
   }
-  return { total: CK_SEEDS.length, missing, outdated, edited };
+  return { total: CK_SEEDS.length, missing, outdated, edited, deleted };
 }
 
 /** 1回の呼び出しで追加・更新する件数（本番の処理時間の上限に収めるため、画面から続けて呼ぶ） */
@@ -80,13 +86,14 @@ export const CK_SEED_BATCH = 40;
 export async function syncCkSeeds(db: Db, opts: { limit?: number } = {}) {
   const limit = opts.limit ?? Infinity;
   const existing = new Map((await loadExisting(db)).map((k) => [k.slug!, k]));
+  const deletedSlugs = new Set((await getSettings(db)).ckSeedDeleted);
   let created = 0;
   let updated = 0;
   let skipped = 0;
   let remaining = 0;
   for (const s of CK_SEEDS) {
     const k = existing.get(s.slug);
-    if (k?.userEdited) {
+    if (k?.userEdited || (!k && deletedSlugs.has(s.slug))) {
       skipped++;
       continue;
     }

@@ -105,6 +105,14 @@ describe("creative knowledge in backups", () => {
 });
 
 describe("creative knowledge categories and tags", () => {
+  it("orders subcategories as listed for the category, then custom ones, then その他", async () => {
+    const { ckSubCategories } = await import("@/server/services/creative-knowledge");
+    for (const [title, sub] of [["a", "その他"], ["b", "自作の分類"], ["c", "共通の敵"], ["d", "選ばれし者"], ["e", "自作の分類"]]) {
+      await createCreativeKnowledge(db, { ...base, title, subCategory: sub, extraCategories: [] });
+    }
+    expect((await ckSubCategories(db, "TROPE")).map((s) => s.name)).toEqual(["選ばれし者", "共通の敵", "自作の分類", "その他"]);
+  });
+
   it("lists tags with counts and subcategories within a category", async () => {
     const { ckTags, ckSubCategories } = await import("@/server/services/creative-knowledge");
     await createCreativeKnowledge(db, { ...base, title: "a", subCategory: "敵から味方へ", tags: ["成長", "裏切り"] });

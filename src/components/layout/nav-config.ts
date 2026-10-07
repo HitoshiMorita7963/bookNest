@@ -23,6 +23,7 @@ import {
   PenSquare,
   Lightbulb,
   NotebookPen,
+  BrainCircuit,
   type LucideIcon,
 } from "lucide-react";
 
@@ -61,6 +62,7 @@ export const SIDEBAR_GROUPS: { title?: string; items: NavItem[] }[] = [
     title: "創作",
     items: [
       { href: "/creative", label: "創作ホーム", icon: PenSquare },
+      { href: "/creative/knowledge", label: "創作知識", icon: BrainCircuit },
       { href: "/creative/notes", label: "創作メモ", icon: Lightbulb },
       { href: "/creative/projects/new", label: "新しい小説", icon: NotebookPen },
     ],

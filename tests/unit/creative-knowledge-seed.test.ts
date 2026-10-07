@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "./helpers";
 import { CK_SEEDS } from "@/server/data/creative-knowledge-seed";
 import { ckSeedStatus, syncCkSeeds } from "@/server/services/creative-knowledge-seed";
-import { ckRelationsOf, setCkMyNote, toggleCkFavorite, updateCreativeKnowledge } from "@/server/services/creative-knowledge";
+import { ckRelationsOf, deleteCreativeKnowledge, setCkMyNote, toggleCkFavorite, updateCreativeKnowledge } from "@/server/services/creative-knowledge";
 import { searchCreativeKnowledge } from "@/server/services/creative-knowledge-search";
 import { creativeKnowledgeInputSchema } from "@/lib/validators";
 import { CK_CATEGORIES } from "@/lib/creative-knowledge";
@@ -94,5 +94,22 @@ describe("creative knowledge seed data", () => {
     expect(await db.creativeKnowledge.count()).toBe(CK_SEEDS.length);
     expect(r.linked).toBeGreaterThan(100);
     expect(await ckSeedStatus(db)).toMatchObject({ missing: 0, outdated: 0 });
+  });
+
+  it("does not bring back samples the user deleted", async () => {
+    await syncCkSeeds(db);
+    const rain = await db.creativeKnowledge.findUniqueOrThrow({ where: { slug: "rain-motif" } });
+    await deleteCreativeKnowledge(db, rain.id);
+    expect(await ckSeedStatus(db)).toMatchObject({ missing: 0, outdated: 0, deleted: 1 });
+    expect(await syncCkSeeds(db)).toMatchObject({ created: 0, skipped: 1 });
+    expect(await db.creativeKnowledge.count({ where: { slug: "rain-motif" } })).toBe(0);
+    // 自分で作った知識を消しても、記録には残さない
+    const mine = await db.creativeKnowledge.create({ data: { title: "自作", category: "MOTIF" } });
+    await deleteCreativeKnowledge(db, mine.id);
+    expect(await ckSeedStatus(db)).toMatchObject({ deleted: 1 });
+    // 「すべてのデータを削除」の後は、もう一度すべて読み込める
+    const { deleteAllData } = await import("@/server/services/backup");
+    await deleteAllData(db);
+    expect(await ckSeedStatus(db)).toMatchObject({ missing: CK_SEEDS.length, deleted: 0 });
   });
 });

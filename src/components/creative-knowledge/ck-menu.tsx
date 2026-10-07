@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DropdownMenu, DropdownMenuContent, DropdownMenuI
 import { deleteCreativeKnowledgeAction } from "@/server/actions/creative-knowledge";
 
 /** 創作知識の詳細画面右上のメニュー（編集・削除） */
-export function CkMenu({ id, title }: { id: string; title: string }) {
+export function CkMenu({ id, title, isSample = false }: { id: string; title: string; isSample?: boolean }) {
   const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   const [pending, start] = useTransition();
@@ -34,7 +34,7 @@ export function CkMenu({ id, title }: { id: string; title: string }) {
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={confirm} onOpenChange={setConfirm}>
-        <DialogContent title={`「${title}」を削除しますか？`} description="関連知識・参考にした読書・作品への関連付けも削除されます。元の本・フレーズ・作品は削除されません。">
+        <DialogContent title={`「${title}」を削除しますか？`} description={`関連知識・参考にした読書・作品への関連付けも削除されます。元の本・フレーズ・作品は削除されません。${isSample ? "サンプルの知識は、「基本の創作知識」を読み込み直しても戻りません。" : ""}`}>
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" onClick={() => setConfirm(false)}>
               キャンセル

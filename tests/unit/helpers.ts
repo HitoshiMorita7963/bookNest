@@ -43,4 +43,6 @@ export async function resetDb() {
   await db.author.deleteMany();
   await db.tag.deleteMany();
   await db.readingGoal.deleteMany();
+  // 設定（AI の利用・削除したサンプルの記録など）もテストごとに初期化する
+  await db.user.deleteMany();
 }
