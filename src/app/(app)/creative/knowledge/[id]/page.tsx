@@ -5,13 +5,15 @@ import { Pencil } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { ckRelationsOf, getCreativeKnowledge, type CkRelationView } from "@/server/services/creative-knowledge";
 import { AddCkRelationButton, RemoveCkRelationButton } from "@/components/creative-knowledge/ck-relations";
+import { AddCkReferenceButton, RemoveCkReferenceButton } from "@/components/creative-knowledge/ck-references";
+import { ckReferencesOf } from "@/server/services/creative-knowledge-references";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionTitle, TagChip } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
 import { CkCategoryBadge, FlowChain, ItemList } from "@/components/creative-knowledge/ck-bits";
 import { CkMenu } from "@/components/creative-knowledge/ck-menu";
 import { ReadMore } from "@/components/ui/read-more";
-import { lines } from "@/lib/creative-knowledge";
+import { CK_REFERENCE_ICON, CK_REFERENCE_LABEL, lines } from "@/lib/creative-knowledge";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,7 +25,7 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
   const { id } = await params;
   const k = await getCreativeKnowledge(prisma, id);
   if (!k) notFound();
-  const relations = await ckRelationsOf(prisma, k.id);
+  const [relations, references] = await Promise.all([ckRelationsOf(prisma, k.id), ckReferencesOf(prisma, k.id)]);
   const relationGroups = [...relations.reduce((m, r) => m.set(r.label, [...(m.get(r.label) ?? []), r]), new Map<string, CkRelationView[]>()).entries()];
   const aliases = lines(k.aliases);
   const sections: { title: string; node: React.ReactNode }[] = [];
@@ -75,6 +77,36 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
             </Button>
           </div>
         )}
+
+        <section aria-label="参考にした読書">
+          <SectionTitle action={<AddCkReferenceButton knowledgeId={k.id} title={k.title} />}>📚 参考にした読書</SectionTitle>
+          {references.length ? (
+            <ul className="space-y-2">
+              {references.map((r) => (
+                <li key={r.id} className="relative flex items-start gap-2 rounded-xl border bg-card p-3">
+                  {r.href ? <Link href={r.href} className="absolute inset-0 rounded-xl" aria-label={r.label} /> : null}
+                  <span aria-hidden className="mt-0.5">
+                    {CK_REFERENCE_ICON[r.kind]}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-medium">{r.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {r.kind === "work" ? "本棚にない作品" : CK_REFERENCE_LABEL[r.kind]}
+                      {r.sub && r.kind !== "work" ? ` ・ ${r.sub}` : ""}
+                      {r.location ? ` ・ ${r.location}` : ""}
+                    </p>
+                    {r.comment ? <p className="prose-note mt-1.5 rounded-lg bg-muted/60 p-2 text-sm">💭 {r.comment}</p> : null}
+                  </div>
+                  <RemoveCkReferenceButton id={r.id} label={r.label} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              この知識の具体例になった本・フレーズ・読書メモ・感想を「読書をつなげる」から登録できます。フレーズや読書メモの画面の「創作知識として保存」からもつなげられます。
+            </p>
+          )}
+        </section>
 
         <section aria-label="関連知識">
           <SectionTitle action={<AddCkRelationButton knowledgeId={k.id} title={k.title} />}>🔗 関連知識</SectionTitle>

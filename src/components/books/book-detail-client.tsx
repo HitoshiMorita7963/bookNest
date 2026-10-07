@@ -26,6 +26,7 @@ import { RecordSheet } from "@/components/reading/reading-sheets";
 import { RatingStars } from "./bits";
 import { BookPickerSheet } from "./book-picker";
 import { ReadMore } from "@/components/ui/read-more";
+import { SaveToCkButton } from "@/components/creative-knowledge/save-to-ck";
 
 export function BookMenu({ bookId, title, shelfIds }: { bookId: string; title: string; shelfIds: string[] }) {
   const router = useRouter();
@@ -258,6 +259,7 @@ export function RecordCard({
           <RatingStars value={record.rating} size="md" className="mt-1" />
         </div>
         <div className="flex">
+          {sections.length ? <SaveToCkButton source={{ kind: "record", id: record.id }} compact /> : null}
           <Button variant="ghost" size="icon-sm" aria-label="読書記録を編集" onClick={() => setEdit(true)}>
             <Pencil />
           </Button>

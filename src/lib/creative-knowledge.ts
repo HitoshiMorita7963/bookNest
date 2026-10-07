@@ -116,3 +116,9 @@ export function lines(text: string | null | undefined): string[] {
     .map((l) => l.replace(/^\s*(?:[-・*•]|\d+[.)．])\s*/, "").trim())
     .filter(Boolean);
 }
+
+/** 参考にした読書の元になれるもの */
+export const CK_REFERENCE_KINDS = ["book", "quote", "session", "record", "knowledgeNote"] as const;
+export type CkReferenceKind = (typeof CK_REFERENCE_KINDS)[number];
+export const CK_REFERENCE_LABEL: Record<CkReferenceKind, string> = { book: "本", quote: "フレーズ", session: "読書メモ", record: "感想", knowledgeNote: "知識" };
+export const CK_REFERENCE_ICON: Record<CkReferenceKind | "work", string> = { book: "📚", quote: "💬", session: "📝", record: "✍️", knowledgeNote: "🧠", work: "📖" };
