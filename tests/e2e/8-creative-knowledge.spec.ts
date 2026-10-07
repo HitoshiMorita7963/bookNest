@@ -110,7 +110,7 @@ test("創作知識：関連知識をつなげる（種類つき・新規作成�
   await expect(page).toHaveURL(/\/creative\/knowledge\/c[a-z0-9]+$/);
 
   // 伏線回収 →（上位の知識）→ 伏線
-  await page.getByRole("button", { name: "つなげる" }).click();
+  await page.getByRole("button", { name: "つなげる", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("radio", { name: "上位の知識" }).click();
   await dialog.getByLabel("創作知識を検索").fill("E2E伏線");
@@ -121,7 +121,7 @@ test("創作知識：関連知識をつなげる（種類つき・新規作成�
   await expect(section.getByRole("link", { name: "E2E伏線" })).toBeVisible();
 
   // まだない知識を作ってつなげる（組み合わせ）
-  await page.getByRole("button", { name: "つなげる" }).click();
+  await page.getByRole("button", { name: "つなげる", exact: true }).click();
   await dialog.getByRole("radio", { name: "組み合わせ" }).click();
   await dialog.getByLabel("創作知識を検索").fill("E2Eどんでん返し");
   await dialog.getByRole("button", { name: "「E2Eどんでん返し」を新しく作ってつなげる" }).click();
@@ -133,4 +133,33 @@ test("創作知識：関連知識をつなげる（種類つき・新規作成�
   await page.getByRole("button", { name: "「E2E伏線回収」とのつながりを解除" }).click();
   await expect(page.getByText("つながりを解除しました")).toBeVisible();
   await expect(page.getByRole("region", { name: "関連知識" }).getByRole("link", { name: "E2E伏線回収" })).toHaveCount(0);
+});
+
+test("創作知識：お気に入りと自分のメモ", async ({ page }) => {
+  await page.goto("/creative/knowledge/new?category=TROPE");
+  await page.getByLabel("タイトル *").fill("E2Eお気に入りの知識");
+  await page.getByRole("button", { name: "創作知識を保存" }).click();
+  await expect(page).toHaveURL(/\/creative\/knowledge\/c[a-z0-9]+$/);
+
+  // お気に入り
+  await page.getByRole("button", { name: "お気に入りに追加" }).click();
+  await expect(page.getByText("★ お気に入りに追加しました")).toBeVisible();
+  await expect(page.getByRole("button", { name: "お気に入りから外す" })).toBeVisible();
+
+  // 自分のメモ（一般の説明とは別の欄）
+  const mine = page.getByRole("region", { name: "自分のメモ" });
+  await mine.getByRole("button", { name: /自分の作品でどう使いたいか/ }).click();
+  await mine.getByLabel("自分のメモ").fill("E2E思想の対立を残したまま共闘させたい");
+  await mine.getByRole("button", { name: "保存" }).click();
+  await expect(page.getByText("自分のメモを保存しました")).toBeVisible();
+  await expect(mine.getByText("E2E思想の対立を残したまま共闘させたい")).toBeVisible();
+
+  // 一覧のお気に入り
+  await page.goto("/creative/knowledge");
+  await expect(page.getByRole("heading", { name: /お気に入り/ })).toBeVisible();
+  await page.goto("/creative/knowledge?fav=1");
+  await expect(page.getByRole("link", { name: /E2Eお気に入りの知識/ })).toBeVisible();
+  // 自分のメモの言葉で検索
+  await page.goto("/creative/knowledge?q=" + encodeURIComponent("E2E思想の対立"));
+  await expect(page.getByText("自分のメモに一致")).toBeVisible();
 });

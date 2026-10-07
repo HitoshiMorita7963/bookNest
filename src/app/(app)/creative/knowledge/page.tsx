@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Star } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { ckCategoryCounts, ckSubCategories, ckTags, listCreativeKnowledge, type CkListItem } from "@/server/services/creative-knowledge";
 import { searchCreativeKnowledge } from "@/server/services/creative-knowledge-search";
@@ -13,7 +13,7 @@ import { CK_CATEGORIES, CK_CATEGORY_INFO, isCkCategory, type CkCategory } from "
 
 export const metadata = { title: "創作知識" };
 
-type SP = { q?: string; category?: string; sub?: string; tag?: string };
+type SP = { q?: string; category?: string; sub?: string; tag?: string; fav?: string };
 function href(sp: SP, patch: Partial<SP>) {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries({ ...sp, ...patch })) if (v) p.set(k, v);
@@ -40,18 +40,20 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
   const sp = await searchParams;
   const category = isCkCategory(sp.category) ? sp.category : undefined;
   const query = sp.q?.trim().slice(0, 100) ?? "";
-  const filtered = !!(category || sp.tag || query);
+  const favorite = sp.fav === "1";
+  const filtered = !!(category || sp.tag || query || favorite);
   // 検索語があるときは、言い換えや関連知識も拾う採点つきの検索
-  const hits = query ? await searchCreativeKnowledge(prisma, query, { category, tag: sp.tag }) : [];
-  const [counts, total, tags, subs, items, recent] = await Promise.all([
+  const hits = query ? (await searchCreativeKnowledge(prisma, query, { category, tag: sp.tag })).filter((h) => !favorite || h.item.isFavorite) : [];
+  const [counts, total, tags, subs, items, recent, favorites] = await Promise.all([
     ckCategoryCounts(prisma),
     prisma.creativeKnowledge.count(),
     ckTags(prisma),
     category ? ckSubCategories(prisma, category) : Promise.resolve([]),
-    filtered && !query ? listCreativeKnowledge(prisma, { category, sub: sp.sub?.slice(0, 60), tag: sp.tag }) : Promise.resolve([]),
+    filtered && !query ? listCreativeKnowledge(prisma, { category, sub: sp.sub?.slice(0, 60), tag: sp.tag, favorite }) : Promise.resolve([]),
     filtered ? Promise.resolve([]) : prisma.creativeKnowledge.findMany({ include: { categories: { select: { category: true } }, tags: { include: { tag: { select: { name: true } } } } }, orderBy: { updatedAt: "desc" }, take: 8 }),
+    filtered ? Promise.resolve([]) : listCreativeKnowledge(prisma, { favorite: true }),
   ]);
-  const grouped = category && !sp.sub && !sp.tag && !query ? groupBySub(items, category) : null;
+  const grouped = category && !sp.sub && !sp.tag && !query && !favorite ? groupBySub(items, category) : null;
   const shown = query ? hits.map((h) => ({ k: h.item, note: h.via ? `🔗 ${h.reason}` : h.reason })) : items.map((k) => ({ k, note: undefined as string | undefined }));
   const newHref = `/creative/knowledge/new${category ? `?category=${category}` : ""}`;
 
@@ -76,8 +78,11 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
         {filtered ? (
           <>
             <nav className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0" aria-label="カテゴリ">
-              <ChipLink href={href(sp, { category: undefined, sub: undefined })} active={!category}>
+              <ChipLink href={href(sp, { category: undefined, sub: undefined, fav: undefined })} active={!category && !favorite}>
                 すべて
+              </ChipLink>
+              <ChipLink href={href(sp, { fav: favorite ? undefined : "1" })} active={favorite}>
+                <Star className="size-3.5" /> お気に入り
               </ChipLink>
               {CK_CATEGORIES.map((c) => (
                 <ChipLink key={c} href={href(sp, { category: category === c ? undefined : c, sub: undefined })} active={category === c}>
@@ -173,6 +178,18 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
                 })}
               </ul>
             </section>
+            {favorites.length ? (
+              <section>
+                <SectionTitle action={<Link href="/creative/knowledge?fav=1" className="text-sm text-primary">すべて</Link>}>
+                  ★ お気に入り <span className="text-sm font-normal text-muted-foreground">今後の創作で使いたい知識</span>
+                </SectionTitle>
+                <ul className="grid gap-3 md:grid-cols-2">
+                  {favorites.slice(0, 6).map((k) => (
+                    <CkCard key={k.id} k={k} />
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             {tags.length ? (
               <section>
                 <SectionTitle>🏷 タグから探す</SectionTitle>

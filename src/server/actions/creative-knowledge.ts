@@ -80,3 +80,13 @@ export async function createCkFromSourceAction(
 export async function pickReadingSourcesAction(q: string) {
   return refs.pickReadingSources(prisma, q.slice(0, 60));
 }
+
+/* ---------------- お気に入り・自分のメモ ---------------- */
+
+export async function toggleCkFavoriteAction(id: string) {
+  return run(async () => ({ isFavorite: await ck.toggleCkFavorite(prisma, id) }));
+}
+
+export async function setCkMyNoteAction(id: string, note: string) {
+  return run(() => ck.setCkMyNote(prisma, id, String(note ?? "")));
+}
