@@ -34,7 +34,7 @@ export interface CkCardData {
 }
 
 /** 一覧のカード */
-export function CkCard({ k, tagHref }: { k: CkCardData; tagHref?: (tag: string) => string }) {
+export function CkCard({ k, tagHref, note }: { k: CkCardData; tagHref?: (tag: string) => string; note?: string }) {
   return (
     <li className="relative rounded-2xl border bg-card p-4 hover:bg-accent/30">
       <Link href={`/creative/knowledge/${k.id}`} className="absolute inset-0 rounded-2xl" aria-label={k.title} />
@@ -56,6 +56,7 @@ export function CkCard({ k, tagHref }: { k: CkCardData; tagHref?: (tag: string) 
         ))}
       </div>
       {k.summary ? <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{k.summary}</p> : null}
+      {note ? <p className="mt-1.5 text-xs text-primary">{note}</p> : null}
       {k.tags.length ? (
         <div className="relative z-10 mt-2 flex flex-wrap gap-1.5">
           {k.tags.map((t) => (

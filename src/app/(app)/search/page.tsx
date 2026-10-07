@@ -2,6 +2,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db";
 import { searchAll, snippet } from "@/server/services/search";
+import { searchCreativeKnowledge } from "@/server/services/creative-knowledge-search";
+import { CkCard } from "@/components/creative-knowledge/ck-bits";
 import { PageHeader } from "@/components/layout/page-header";
 import { SearchBox } from "@/components/search/search-box";
 import { BookList } from "@/components/books/book-grid";
@@ -13,8 +15,8 @@ export const metadata = { title: "検索" };
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q = "" } = await searchParams;
   const query = q.slice(0, 100);
-  const r = query.trim() ? await searchAll(prisma, query) : null;
-  const total = r ? r.bookCount + r.records.length + r.quoteCount + r.knowledgeCount + r.notes.length + r.authors.length + r.creativeNotes.length + r.projects.length : 0;
+  const [r, ckHits] = query.trim() ? await Promise.all([searchAll(prisma, query), searchCreativeKnowledge(prisma, query, { take: 6, withRelated: false })]) : [null, []];
+  const total = r ? r.bookCount + r.records.length + r.quoteCount + r.knowledgeCount + r.notes.length + r.authors.length + r.creativeNotes.length + r.projects.length + ckHits.length : 0;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -22,12 +24,22 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <SearchBox initial={query} />
       {!r ? (
         <div className="mt-6 rounded-xl bg-muted/50 p-4 text-sm leading-relaxed text-muted-foreground">
-          本のタイトル・著者・ISBN・出版社・タグに加えて、感想・要約・学んだこと・読書メモ・保存したフレーズ・知識ノート・創作メモ・小説プロジェクトをまとめて検索できます。
+          本のタイトル・著者・ISBN・出版社・タグに加えて、感想・要約・学んだこと・読書メモ・保存したフレーズ・知識ノート・創作知識・創作メモ・小説プロジェクトをまとめて検索できます。
         </div>
       ) : total === 0 ? (
         <EmptyState className="mt-6" icon="🔍" title={`「${query}」に一致するものはありませんでした`} description="別のキーワードや、短い単語で検索してみてください。" />
       ) : (
         <div className="mt-6 space-y-8">
+          {ckHits.length ? (
+            <section>
+              <SectionTitle action={<Link href={`/creative/knowledge?q=${encodeURIComponent(query)}`} className="text-sm text-primary">創作知識で探す</Link>}>🧠 創作知識</SectionTitle>
+              <ul className="grid gap-3 md:grid-cols-2">
+                {ckHits.map((h) => (
+                  <CkCard key={h.item.id} k={h.item} note={h.reason} />
+                ))}
+              </ul>
+            </section>
+          ) : null}
           {r.authors.length ? (
             <section>
               <SectionTitle>👤 著者</SectionTitle>

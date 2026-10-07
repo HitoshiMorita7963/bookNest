@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { ckCategoryCounts, ckSubCategories, ckTags, listCreativeKnowledge, type CkListItem } from "@/server/services/creative-knowledge";
+import { searchCreativeKnowledge } from "@/server/services/creative-knowledge-search";
 import { PageHeader } from "@/components/layout/page-header";
 import { SearchBox } from "@/components/search/search-box";
 import { EmptyState, SectionTitle } from "@/components/books/bits";
@@ -38,16 +39,20 @@ function groupBySub(items: CkListItem[], category: CkCategory) {
 export default async function CreativeKnowledgePage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const category = isCkCategory(sp.category) ? sp.category : undefined;
-  const filtered = !!(category || sp.tag || sp.q?.trim());
+  const query = sp.q?.trim().slice(0, 100) ?? "";
+  const filtered = !!(category || sp.tag || query);
+  // 検索語があるときは、言い換えや関連知識も拾う採点つきの検索
+  const hits = query ? await searchCreativeKnowledge(prisma, query, { category, tag: sp.tag }) : [];
   const [counts, total, tags, subs, items, recent] = await Promise.all([
     ckCategoryCounts(prisma),
     prisma.creativeKnowledge.count(),
     ckTags(prisma),
     category ? ckSubCategories(prisma, category) : Promise.resolve([]),
-    filtered ? listCreativeKnowledge(prisma, { category, sub: sp.sub?.slice(0, 60), tag: sp.tag, q: sp.q?.slice(0, 100) }) : Promise.resolve([]),
+    filtered && !query ? listCreativeKnowledge(prisma, { category, sub: sp.sub?.slice(0, 60), tag: sp.tag }) : Promise.resolve([]),
     filtered ? Promise.resolve([]) : prisma.creativeKnowledge.findMany({ include: { categories: { select: { category: true } }, tags: { include: { tag: { select: { name: true } } } } }, orderBy: { updatedAt: "desc" }, take: 8 }),
   ]);
-  const grouped = category && !sp.sub && !sp.tag && !sp.q?.trim() ? groupBySub(items, category) : null;
+  const grouped = category && !sp.sub && !sp.tag && !query ? groupBySub(items, category) : null;
+  const shown = query ? hits.map((h) => ({ k: h.item, note: h.via ? `🔗 ${h.reason}` : h.reason })) : items.map((k) => ({ k, note: undefined as string | undefined }));
   const newHref = `/creative/knowledge/new${category ? `?category=${category}` : ""}`;
 
   return (
@@ -107,7 +112,7 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
                 </Link>
               </p>
             ) : null}
-            {items.length === 0 ? (
+            {shown.length === 0 ? (
               <EmptyState
                 icon="🔍"
                 title="該当する創作知識はありません"
@@ -136,10 +141,12 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
               </div>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground">{items.length}件</p>
+                <p className="text-sm text-muted-foreground">
+                  {shown.length}件{query ? "（関連の強い順）" : ""}
+                </p>
                 <ul className="grid gap-3 md:grid-cols-2">
-                  {items.map((k) => (
-                    <CkCard key={k.id} k={k} />
+                  {shown.map(({ k, note }) => (
+                    <CkCard key={k.id} k={k} note={note} />
                   ))}
                 </ul>
               </>

@@ -77,3 +77,22 @@ test("創作知識：カテゴリのサブカテゴリとタグから探せる",
   await expect(page.getByRole("link", { name: "E2E幼馴染" })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E共通の敵" })).toHaveCount(0);
 });
+
+test("創作知識：言い換えで検索でき、全体検索にも出る", async ({ page }) => {
+  await page.goto("/creative/knowledge/new?category=TROPE");
+  await page.getByLabel("タイトル *").fill("E2E寝返り");
+  await page.getByLabel("概要").fill("敵対していた人物が主人公側に加わる。");
+  await page.getByLabel("別名・言い換え").fill("E2E敵が仲間になる");
+  await page.getByRole("button", { name: "創作知識を保存" }).click();
+  await expect(page).toHaveURL(/\/creative\/knowledge\/c[a-z0-9]+$/);
+
+  // 創作知識の検索：タイトルと違う言葉でも見つかり、理由が表示される
+  await page.goto("/creative/knowledge?q=" + encodeURIComponent("E2E敵が仲間になる"));
+  await expect(page.getByRole("link", { name: "E2E寝返り" })).toBeVisible();
+  await expect(page.getByText(/別名「e2e敵が仲間になる」に一致/i)).toBeVisible();
+
+  // 全体検索
+  await page.goto("/search?q=" + encodeURIComponent("E2E寝返り"));
+  await expect(page.getByRole("heading", { name: /創作知識/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "E2E寝返り" })).toBeVisible();
+});
