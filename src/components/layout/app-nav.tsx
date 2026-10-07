@@ -16,6 +16,7 @@ import {
   PenLine,
   Camera,
   NotebookPen,
+  BrainCircuit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_GROUPS, isActive } from "./nav-config";
@@ -83,6 +84,7 @@ const ADD_ACTIONS = [
   { href: "/creative/notes/new", label: "創作メモ", desc: "思いついたアイデアをすぐ保存", icon: Lightbulb },
   { href: "/creative/projects/new", label: "小説プロジェクト", desc: "新しい作品を作る", icon: PenSquare },
   { href: "/knowledge/new", label: "知識を保存", desc: "読んで得た理解をまとめる", icon: Brain },
+  { href: "/creative/knowledge/new", label: "創作知識", desc: "物語の型・演出などの知識を蓄える", icon: BrainCircuit },
   { href: "/reading", label: "読書の進捗・メモ", desc: "読書中の本を更新", icon: NotebookPen },
 ];
 

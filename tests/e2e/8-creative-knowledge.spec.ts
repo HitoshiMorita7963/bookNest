@@ -72,7 +72,9 @@ test("創作知識：カテゴリのサブカテゴリとタグから探せる",
 
   // カテゴリ → サブカテゴリで絞り込み
   await page.goto("/creative/knowledge?category=TROPE");
-  await expect(page.getByRole("heading", { name: /共通の敵/ })).toBeVisible();
+  // サブカテゴリごとに1件ずつしかないときは、見出しを付けずに一覧で表示する
+  await expect(page.getByRole("link", { name: "E2E共通の敵" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /共通の敵/ })).toHaveCount(0);
   await page.getByRole("navigation", { name: "サブカテゴリ" }).getByRole("link", { name: /幼馴染/ }).click();
   await expect(page.getByRole("link", { name: "E2E幼馴染" })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E共通の敵" })).toHaveCount(0);
