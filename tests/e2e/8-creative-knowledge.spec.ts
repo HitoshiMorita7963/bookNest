@@ -110,7 +110,7 @@ test("創作知識：関連知識をつなげる（種類つき・新規作成�
   await expect(page).toHaveURL(/\/creative\/knowledge\/c[a-z0-9]+$/);
 
   // 伏線回収 →（上位の知識）→ 伏線
-  await page.getByRole("button", { name: "つなげる" }).click();
+  await page.getByRole("button", { name: "つなげる", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("radio", { name: "上位の知識" }).click();
   await dialog.getByLabel("創作知識を検索").fill("E2E伏線");
@@ -121,7 +121,7 @@ test("創作知識：関連知識をつなげる（種類つき・新規作成�
   await expect(section.getByRole("link", { name: "E2E伏線" })).toBeVisible();
 
   // まだない知識を作ってつなげる（組み合わせ）
-  await page.getByRole("button", { name: "つなげる" }).click();
+  await page.getByRole("button", { name: "つなげる", exact: true }).click();
   await dialog.getByRole("radio", { name: "組み合わせ" }).click();
   await dialog.getByLabel("創作知識を検索").fill("E2Eどんでん返し");
   await dialog.getByRole("button", { name: "「E2Eどんでん返し」を新しく作ってつなげる" }).click();
