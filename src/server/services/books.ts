@@ -4,6 +4,7 @@ import { bookInputSchema, type BookInput, bookStatusSchema } from "@/lib/validat
 import { parseIsbn } from "@/lib/isbn";
 import { DuplicateError, NotFoundError, AppError } from "@/lib/errors";
 import { PAGE_SIZE, type BookStatus, type SortKey } from "@/lib/constants";
+import { compactAuthorName, normalizeAuthorName } from "@/lib/author-name";
 
 type Tx = Prisma.TransactionClient | Db;
 
@@ -22,11 +23,36 @@ export async function upsertTags(db: Tx, names: string[]): Promise<string[]> {
   return ids;
 }
 
+/** スペースを除くと同じ名前になる著者（例：「夏目漱石」と「夏目 漱石」と「夏目　漱石」） */
+export async function findAuthorsByCompactName(db: Tx, name: string) {
+  const key = compactAuthorName(name);
+  return db.$queryRaw<{ id: string; name: string }[]>`SELECT id, name FROM Author WHERE REPLACE(REPLACE(name, ' ', ''), '　', '') = ${key}`;
+}
+
+/**
+ * 著者を名前で探し、なければ作る。名前のスペースは半角1つにそろえる。
+ * スペースの有無だけが違う著者がいれば同じ人として扱い、スペースありの表記を優先する。
+ */
 export async function upsertAuthors(db: Tx, names: string[]): Promise<string[]> {
   const ids: string[] = [];
-  for (const name of names) {
-    const a = await db.author.upsert({ where: { name }, create: { name }, update: {} });
-    ids.push(a.id);
+  for (const raw of names) {
+    const name = normalizeAuthorName(raw);
+    if (!name) continue;
+    const same = await findAuthorsByCompactName(db, name);
+    const exact = same.find((a) => a.name === name);
+    let id: string;
+    if (exact) id = exact.id;
+    else if (same.length && !name.includes(" ")) {
+      // 既にスペースありの表記で登録されている
+      id = (same.find((a) => a.name === normalizeAuthorName(a.name) && a.name.includes(" ")) ?? same[0]).id;
+    } else if (same.length) {
+      // 既存の表記（スペースなし・全角スペース）を、スペースありの表記に直して使う
+      id = same[0].id;
+      await db.author.update({ where: { id }, data: { name } });
+    } else {
+      id = (await db.author.create({ data: { name } })).id;
+    }
+    if (!ids.includes(id)) ids.push(id);
   }
   return ids;
 }
