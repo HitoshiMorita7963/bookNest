@@ -4,6 +4,16 @@
  * slug で同じ知識を見分ける（読み込み直しても重複しない。自分で編集したものは上書きしない）。
  */
 import type { CkCategory, CkRelationType } from "@/lib/creative-knowledge";
+import { STRUCTURE_SEEDS } from "./ck-seed/structure";
+import { PLOT_SEEDS } from "./ck-seed/plot";
+import { CHARACTER_SEEDS } from "./ck-seed/character";
+import { EMOTION_SEEDS } from "./ck-seed/emotion";
+import { SCENE_SEEDS } from "./ck-seed/scene";
+import { WORLD_SEEDS } from "./ck-seed/world";
+import { GENRE_SEEDS } from "./ck-seed/genre";
+import { TROPE_SEEDS } from "./ck-seed/trope";
+import { MOTIF_SEEDS } from "./ck-seed/motif";
+import { EXPRESSION_SEEDS } from "./ck-seed/expression";
 
 export interface CkSeed {
   slug: string;
@@ -24,7 +34,8 @@ export interface CkSeed {
   relations?: [CkRelationType, string][];
 }
 
-export const CK_SEEDS: CkSeed[] = [
+/** 最初に用意した基本の知識（各カテゴリ2〜5件） */
+const BASE_SEEDS: CkSeed[] = [
   /* ---------------- 01 物語構造 ---------------- */
   {
     slug: "three-act-structure",
@@ -551,4 +562,19 @@ export const CK_SEEDS: CkSeed[] = [
     aliases: ["読後感", "余白"],
     tags: ["文章", "結末"],
   },
+];
+
+/** すべての初期データ（基本 ＋ カテゴリごとの追加分） */
+export const CK_SEEDS: CkSeed[] = [
+  ...BASE_SEEDS,
+  ...STRUCTURE_SEEDS,
+  ...PLOT_SEEDS,
+  ...CHARACTER_SEEDS,
+  ...EMOTION_SEEDS,
+  ...SCENE_SEEDS,
+  ...WORLD_SEEDS,
+  ...GENRE_SEEDS,
+  ...TROPE_SEEDS,
+  ...MOTIF_SEEDS,
+  ...EXPRESSION_SEEDS,
 ];

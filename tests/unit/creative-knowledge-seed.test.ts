@@ -14,7 +14,10 @@ describe("creative knowledge seed data", () => {
     const slugs = new Set(CK_SEEDS.map((s) => s.slug));
     expect(slugs.size).toBe(CK_SEEDS.length);
     expect(new Set(CK_SEEDS.map((s) => s.title)).size).toBe(CK_SEEDS.length);
-    for (const c of CK_CATEGORIES) expect(CK_SEEDS.filter((s) => s.category === c).length, c).toBeGreaterThanOrEqual(2);
+    // 目安：全体で200〜250件、各カテゴリ15件以上
+    expect(CK_SEEDS.length).toBeGreaterThanOrEqual(200);
+    expect(CK_SEEDS.length).toBeLessThanOrEqual(250);
+    for (const c of CK_CATEGORIES) expect(CK_SEEDS.filter((s) => s.category === c).length, c).toBeGreaterThanOrEqual(15);
     const pairs = new Set<string>();
     for (const s of CK_SEEDS) {
       expect(s.summary.length, s.slug).toBeGreaterThan(10);
@@ -39,10 +42,11 @@ describe("creative knowledge seed data", () => {
   it("loads once, is idempotent, and links relations", async () => {
     expect(await ckSeedStatus(db)).toMatchObject({ total: CK_SEEDS.length, missing: CK_SEEDS.length, outdated: 0 });
     const first = await syncCkSeeds(db);
-    expect(first).toEqual({ created: CK_SEEDS.length, updated: 0, skipped: 0 });
+    expect(first).toMatchObject({ created: CK_SEEDS.length, updated: 0, skipped: 0, remaining: 0 });
+    expect(first.linked).toBeGreaterThan(100);
     expect(await ckSeedStatus(db)).toMatchObject({ missing: 0, outdated: 0, edited: 0 });
     const again = await syncCkSeeds(db);
-    expect(again).toEqual({ created: 0, updated: 0, skipped: 0 });
+    expect(again).toEqual({ created: 0, updated: 0, skipped: 0, remaining: 0, linked: 0 });
     expect(await db.creativeKnowledge.count()).toBe(CK_SEEDS.length);
     expect(await db.creativeKnowledge.count({ where: { origin: "seed" } })).toBe(CK_SEEDS.length);
 
@@ -70,7 +74,7 @@ describe("creative knowledge seed data", () => {
     await updateCreativeKnowledge(db, b.id, { title: "伏線回収（自分用）", category: "PLOT", summary: "自分の言葉で書き直した" });
     expect(await ckSeedStatus(db)).toMatchObject({ missing: 0, outdated: 1, edited: 1 });
 
-    expect(await syncCkSeeds(db)).toEqual({ created: 0, updated: 1, skipped: 1 });
+    expect(await syncCkSeeds(db)).toMatchObject({ created: 0, updated: 1, skipped: 1, remaining: 0 });
     const a2 = await db.creativeKnowledge.findUniqueOrThrow({ where: { id: a.id } });
     expect(a2.summary).toBe(CK_SEEDS.find((s) => s.slug === "foreshadowing")!.summary);
     expect(a2.isFavorite).toBe(true);
@@ -79,5 +83,16 @@ describe("creative knowledge seed data", () => {
     const b2 = await db.creativeKnowledge.findUniqueOrThrow({ where: { id: b.id } });
     expect(b2.title).toBe("伏線回収（自分用）");
     expect(b2.userEdited).toBe(true);
+  });
+
+  it("loads in batches (for the production time limit) and links relations only at the end", async () => {
+    const r1 = await syncCkSeeds(db, { limit: 100 });
+    expect(r1).toMatchObject({ created: 100, remaining: CK_SEEDS.length - 100, linked: 0 });
+    expect(await db.creativeKnowledgeRelation.count()).toBe(0);
+    let r = r1;
+    while (r.remaining > 0) r = await syncCkSeeds(db, { limit: 100 });
+    expect(await db.creativeKnowledge.count()).toBe(CK_SEEDS.length);
+    expect(r.linked).toBeGreaterThan(100);
+    expect(await ckSeedStatus(db)).toMatchObject({ missing: 0, outdated: 0 });
   });
 });
