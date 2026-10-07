@@ -9,6 +9,8 @@ import { EmptyState, SectionTitle } from "@/components/books/bits";
 import { ChipLink } from "@/components/ui/chip-link";
 import { Button } from "@/components/ui/button";
 import { CkCard } from "@/components/creative-knowledge/ck-bits";
+import { CkSeedCard } from "@/components/creative-knowledge/ck-seed";
+import { ckSeedStatus } from "@/server/services/creative-knowledge-seed";
 import { CK_CATEGORIES, CK_CATEGORY_INFO, isCkCategory, type CkCategory } from "@/lib/creative-knowledge";
 
 export const metadata = { title: "創作知識" };
@@ -44,7 +46,7 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
   const filtered = !!(category || sp.tag || query || favorite);
   // 検索語があるときは、言い換えや関連知識も拾う採点つきの検索
   const hits = query ? (await searchCreativeKnowledge(prisma, query, { category, tag: sp.tag })).filter((h) => !favorite || h.item.isFavorite) : [];
-  const [counts, total, tags, subs, items, recent, favorites] = await Promise.all([
+  const [counts, total, tags, subs, items, recent, favorites, seedStatus] = await Promise.all([
     ckCategoryCounts(prisma),
     prisma.creativeKnowledge.count(),
     ckTags(prisma),
@@ -52,6 +54,7 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
     filtered && !query ? listCreativeKnowledge(prisma, { category, sub: sp.sub?.slice(0, 60), tag: sp.tag, favorite }) : Promise.resolve([]),
     filtered ? Promise.resolve([]) : prisma.creativeKnowledge.findMany({ include: { categories: { select: { category: true } }, tags: { include: { tag: { select: { name: true } } } } }, orderBy: { updatedAt: "desc" }, take: 8 }),
     filtered ? Promise.resolve([]) : listCreativeKnowledge(prisma, { favorite: true }),
+    filtered ? Promise.resolve(null) : ckSeedStatus(prisma),
   ]);
   const grouped = category && !sp.sub && !sp.tag && !query && !favorite ? groupBySub(items, category) : null;
   const shown = query ? hits.map((h) => ({ k: h.item, note: h.via ? `🔗 ${h.reason}` : h.reason })) : items.map((k) => ({ k, note: undefined as string | undefined }));
@@ -159,6 +162,7 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
           </>
         ) : (
           <>
+            {seedStatus ? <CkSeedCard status={seedStatus} /> : null}
             <section aria-label="カテゴリ">
               <ul className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 {CK_CATEGORIES.map((c) => {
@@ -207,7 +211,7 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
               <EmptyState
                 icon="🧠"
                 title="まだ創作知識がありません"
-                description="「敵から味方へ」「伏線回収」のような創作の知識を登録して、読書メモや自分の作品とつなげましょう。"
+                description="「敵から味方へ」「伏線回収」のような創作の知識を登録して、読書メモや自分の作品とつなげましょう。上の「基本の創作知識」から始めることもできます。"
                 action={
                   <Button asChild size="lg">
                     <Link href="/creative/knowledge/new">

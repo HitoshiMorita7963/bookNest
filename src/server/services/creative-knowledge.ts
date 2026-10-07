@@ -28,13 +28,13 @@ export async function createCreativeKnowledge(db: Db, input: CreativeKnowledgeIn
   });
 }
 
-export async function updateCreativeKnowledge(db: Db, id: string, input: CreativeKnowledgeInput) {
+export async function updateCreativeKnowledge(db: Db, id: string, input: CreativeKnowledgeInput, opts: { bySeed?: boolean } = {}) {
   const { extraCategories, tags, ...data } = creativeKnowledgeInputSchema.parse(input);
   return db.$transaction(async (tx) => {
     const cur = await tx.creativeKnowledge.findUnique({ where: { id }, select: { origin: true } });
     if (!cur) throw new NotFoundError("創作知識");
-    // サンプルを自分で編集したら、サンプルの更新で上書きしない
-    const k = await tx.creativeKnowledge.update({ where: { id }, data: { ...data, userEdited: cur.origin === "seed" ? true : undefined } });
+    // サンプルを自分で編集したら、サンプルの更新で上書きしない（サンプルの読み込みによる更新は除く）
+    const k = await tx.creativeKnowledge.update({ where: { id }, data: { ...data, userEdited: cur.origin === "seed" && !opts.bySeed ? true : undefined } });
     await setCategoriesAndTags(tx, id, extraCategories, tags);
     await cleanupOrphans(tx);
     return k;
