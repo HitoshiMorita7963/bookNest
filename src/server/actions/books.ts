@@ -11,15 +11,28 @@ import { aiAvailable } from "@/server/ai/librarian";
 import { suggestGenreTags } from "@/server/ai/features";
 import { parseIsbn } from "@/lib/isbn";
 import { syncBookRowsLater, syncSheetLater } from "@/server/sheets-sync";
+import { isUnspacedJapaneseName, normalizeAuthorList, normalizeAuthorName } from "@/lib/author-name";
 
 function revalidateBooks(id?: string) {
   revalidatePath("/", "layout");
   if (id) revalidatePath(`/books/${id}`);
 }
 
+/**
+ * 著者名のスペースをそろえる。スペースのない日本語の名前（例：夏目漱石）は、ISBN があれば
+ * 国立国会図書館の表記（例：夏目 漱石）に合わせる。登録画面で問い合わせ済みのことが多いので、待つのは短く。
+ */
+async function withSpacedAuthors(input: BookInput): Promise<BookInput> {
+  const names = input.authors ?? [];
+  const isbn = parseIsbn(input.isbn ?? "")?.isbn13;
+  const needsNdl = isbn && names.some((n) => isUnspacedJapaneseName(normalizeAuthorName(n)));
+  const ndl = needsNdl ? await ndlLookup(isbn, 4_000).catch(() => null) : null;
+  return { ...input, authors: normalizeAuthorList(names, ndl?.authors ?? []) };
+}
+
 export async function createBookAction(input: BookInput): Promise<ActionResult<{ id: string }>> {
   try {
-    const book = await books.createBook(prisma, input);
+    const book = await books.createBook(prisma, await withSpacedAuthors(input));
     revalidateBooks(book.id);
     return { ok: true, data: { id: book.id } };
   } catch (e) {
@@ -29,7 +42,7 @@ export async function createBookAction(input: BookInput): Promise<ActionResult<{
 
 export async function updateBookAction(id: string, input: BookInput): Promise<ActionResult<{ id: string }>> {
   try {
-    await books.updateBook(prisma, id, input);
+    await books.updateBook(prisma, id, await withSpacedAuthors(input));
     await syncBookRowsLater(id);
     revalidateBooks(id);
     return { ok: true, data: { id } };
