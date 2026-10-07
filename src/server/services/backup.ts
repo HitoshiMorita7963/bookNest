@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import type { Db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { cleanupOrphans } from "./books";
+import { getSettings, updateSettings } from "./settings";
 
 export const BACKUP_VERSION = 1;
 
@@ -339,4 +340,7 @@ export async function deleteAllData(db: Db) {
   await db.$transaction(async (tx) => {
     for (const table of [...TABLES].reverse()) await (tx as unknown as Record<Table, { deleteMany: () => Promise<unknown> }>)[table].deleteMany();
   });
+  // データを空にしたら、「削除したサンプルの創作知識」の記録も消す（もう一度すべて読み込めるように）
+  const { ckSeedDeleted } = await getSettings(db);
+  if (ckSeedDeleted.length) await updateSettings(db, { ckSeedDeleted: [] });
 }

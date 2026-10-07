@@ -43,7 +43,7 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
       <PageHeader title="🧠 創作知識" back="/creative/knowledge" actions={
           <>
             <CkFavoriteButton id={k.id} initial={k.isFavorite} />
-            <CkMenu id={k.id} title={k.title} />
+            <CkMenu id={k.id} title={k.title} isSample={k.origin === "seed"} />
           </>
         } />
       <article className="space-y-7">

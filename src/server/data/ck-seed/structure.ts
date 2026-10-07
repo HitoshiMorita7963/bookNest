@@ -183,7 +183,7 @@ export const STRUCTURE_SEEDS: CkSeed[] = [
     patterns: ["偽りの勝利", "偽りの敗北", "敵の正体や目的が見える", "恋愛ものなら初めてのキス"],
     usage: ["ミッドポイント以降は、主人公が自分から動くようにする"],
     cautions: ["何も変わらないミッドポイントは、ただの通過点になる"],
-    aliases: ["中間点", "折り返し点"],
+    aliases: ["中間点", "折り返し点", "中盤の転換"],
     tags: ["構成", "プロット"],
     relations: [["parent", "three-act-structure"], ["related", "false-victory"]],
   },

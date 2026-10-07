@@ -8,6 +8,7 @@ import { AppError, NotFoundError } from "@/lib/errors";
 import { creativeKnowledgeInputSchema, type CreativeKnowledgeInput } from "@/lib/validators";
 import { CK_CATEGORIES, CK_CATEGORY_INFO, isCkCategory, CK_RELATION_LABEL, CK_RELATION_REVERSE_LABEL, CK_RELATION_TYPES, type CkCategory, type CkRelationType } from "@/lib/creative-knowledge";
 import { cleanupOrphans, upsertTags } from "./books";
+import { getSettings, updateSettings } from "./settings";
 
 type Tx = Prisma.TransactionClient | Db;
 
@@ -42,12 +43,18 @@ export async function updateCreativeKnowledge(db: Db, id: string, input: Creativ
 }
 
 export async function deleteCreativeKnowledge(db: Db, id: string) {
+  const cur = await db.creativeKnowledge.findUnique({ where: { id }, select: { origin: true, slug: true } });
   await db.$transaction(async (tx) => {
     // CreativeLink.ckId は外部キーなしなので、作品などへの紐付けをここで消す
     await tx.creativeLink.deleteMany({ where: { ckId: id } });
     await tx.creativeKnowledge.delete({ where: { id } });
     await cleanupOrphans(tx);
   });
+  // 削除したサンプルは、「基本の創作知識」をもう一度読み込んでも戻さない
+  if (cur?.origin === "seed" && cur.slug) {
+    const { ckSeedDeleted } = await getSettings(db);
+    if (!ckSeedDeleted.includes(cur.slug)) await updateSettings(db, { ckSeedDeleted: [...ckSeedDeleted, cur.slug] });
+  }
 }
 
 export const ckListInclude = {

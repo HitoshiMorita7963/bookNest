@@ -6,6 +6,8 @@ export const settingsSchema = z.object({
   aiEnabled: z.boolean().default(false),
   /** 年間目標をホームに表示する等、将来の拡張用 */
   defaultOcrDirection: z.enum(["auto", "horizontal", "vertical"]).default("auto"),
+  /** 自分で削除したサンプルの創作知識（slug）。「基本の創作知識」の読み込みで戻さない */
+  ckSeedDeleted: z.array(z.string().max(80)).max(1000).default([]),
 });
 export type AppSettings = z.infer<typeof settingsSchema>;
 
