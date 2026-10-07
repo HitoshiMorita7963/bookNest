@@ -49,3 +49,31 @@ test("創作知識：作成 → 詳細 → 編集 → 削除", async ({ page }) 
   await expect(page.getByText("創作知識を削除しました")).toBeVisible();
   await expect(page.getByRole("link", { name: /E2E敵から味方へ/ })).toHaveCount(0);
 });
+
+test("創作知識：カテゴリのサブカテゴリとタグから探せる", async ({ page }) => {
+  for (const [title, sub, tags] of [
+    ["E2E共通の敵", "共通の敵", "E2E共闘"],
+    ["E2E幼馴染", "幼馴染", "E2E共闘、E2E恋愛"],
+  ] as const) {
+    await page.goto("/creative/knowledge/new?category=TROPE");
+    await page.getByLabel("タイトル *").fill(title);
+    await page.getByLabel("サブカテゴリ").fill(sub);
+    await page.getByLabel("タグ").fill(tags);
+    await page.getByRole("button", { name: "創作知識を保存" }).click();
+    await expect(page).toHaveURL(/\/creative\/knowledge\/c[a-z0-9]+$/);
+  }
+  // トップの「タグから探す」
+  await page.goto("/creative/knowledge");
+  await page.getByRole("navigation", { name: "タグ" }).getByRole("link", { name: /#E2E共闘/ }).click();
+  await expect(page.getByText("#E2E共闘", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("の創作知識")).toBeVisible();
+  await expect(page.getByRole("link", { name: "E2E共通の敵" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "E2E幼馴染" })).toBeVisible();
+
+  // カテゴリ → サブカテゴリで絞り込み
+  await page.goto("/creative/knowledge?category=TROPE");
+  await expect(page.getByRole("heading", { name: /共通の敵/ })).toBeVisible();
+  await page.getByRole("navigation", { name: "サブカテゴリ" }).getByRole("link", { name: /幼馴染/ }).click();
+  await expect(page.getByRole("link", { name: "E2E幼馴染" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "E2E共通の敵" })).toHaveCount(0);
+});

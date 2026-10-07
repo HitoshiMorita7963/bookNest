@@ -103,3 +103,26 @@ describe("creative knowledge in backups", () => {
     expect(await db.creativeKnowledge.count()).toBe(1);
   });
 });
+
+describe("creative knowledge categories and tags", () => {
+  it("lists tags with counts and subcategories within a category", async () => {
+    const { ckTags, ckSubCategories } = await import("@/server/services/creative-knowledge");
+    await createCreativeKnowledge(db, { ...base, title: "a", subCategory: "敵から味方へ", tags: ["成長", "裏切り"] });
+    await createCreativeKnowledge(db, { ...base, title: "b", subCategory: "敵から味方へ", tags: ["成長"] });
+    await createCreativeKnowledge(db, { ...base, title: "c", subCategory: "共通の敵", tags: [] });
+    await createCreativeKnowledge(db, { ...base, title: "d", category: "PLOT", subCategory: "伏線", tags: ["成長"] });
+    expect(await ckTags(db)).toEqual([
+      { name: "成長", count: 3 },
+      { name: "裏切り", count: 1 },
+    ]);
+    expect(await ckSubCategories(db, "TROPE")).toEqual([
+      { name: "敵から味方へ", count: 2 },
+      { name: "共通の敵", count: 1 },
+    ]);
+    expect((await listCreativeKnowledge(db, { category: "TROPE", sub: "共通の敵" })).map((k) => k.title)).toEqual(["c"]);
+    // タグを付けた知識が消えると、タグ一覧からも消える
+    const d = await db.creativeKnowledge.findFirstOrThrow({ where: { title: "d" } });
+    await deleteCreativeKnowledge(db, d.id);
+    expect((await ckTags(db)).find((t) => t.name === "成長")?.count).toBe(2);
+  });
+});

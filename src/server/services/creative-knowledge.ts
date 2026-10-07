@@ -63,6 +63,8 @@ export type CreativeKnowledgeDetail = NonNullable<Awaited<ReturnType<typeof getC
 export interface CkQuery {
   /** 主カテゴリまたは2つ目以降のカテゴリ */
   category?: string;
+  /** サブカテゴリ */
+  sub?: string;
   tag?: string;
   q?: string;
   favorite?: boolean;
@@ -73,6 +75,7 @@ export function buildCkWhere(query: CkQuery): Prisma.CreativeKnowledgeWhereInput
   if (query.category && (CK_CATEGORIES as readonly string[]).includes(query.category)) {
     and.push({ OR: [{ category: query.category }, { categories: { some: { category: query.category } } }] });
   }
+  if (query.sub) and.push({ subCategory: query.sub });
   if (query.tag) and.push({ tags: { some: { tag: { name: query.tag } } } });
   if (query.favorite) and.push({ isFavorite: true });
   for (const t of (query.q ?? "").trim().split(/\s+/).filter(Boolean).slice(0, 5)) {
@@ -104,4 +107,22 @@ export async function ckCategoryCounts(db: Db): Promise<Record<CkCategory, numbe
   const counts = Object.fromEntries(CK_CATEGORIES.map((c) => [c, 0])) as Record<CkCategory, number>;
   for (const r of [...primary, ...extra]) if (r.category in counts) counts[r.category as CkCategory] += r._count._all;
   return counts;
+}
+
+/** 創作知識で使われているタグと件数（件数の多い順） */
+export async function ckTags(db: Db) {
+  const tags = await db.tag.findMany({
+    where: { creativeKnowledge: { some: {} } },
+    select: { name: true, _count: { select: { creativeKnowledge: true } } },
+  });
+  return tags.map((t) => ({ name: t.name, count: t._count.creativeKnowledge })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja"));
+}
+
+/** カテゴリ内のサブカテゴリと件数（主カテゴリがそのカテゴリのもの） */
+export async function ckSubCategories(db: Db, category: string) {
+  const rows = await db.creativeKnowledge.groupBy({ by: ["subCategory"], where: { category }, _count: { _all: true } });
+  return rows
+    .filter((r) => r.subCategory)
+    .map((r) => ({ name: r.subCategory!, count: r._count._all }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja"));
 }

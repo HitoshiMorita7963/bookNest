@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { ckCategoryCounts, listCreativeKnowledge } from "@/server/services/creative-knowledge";
+import { ckCategoryCounts, ckSubCategories, ckTags, listCreativeKnowledge, type CkListItem } from "@/server/services/creative-knowledge";
 import { PageHeader } from "@/components/layout/page-header";
 import { SearchBox } from "@/components/search/search-box";
 import { EmptyState, SectionTitle } from "@/components/books/bits";
 import { ChipLink } from "@/components/ui/chip-link";
 import { Button } from "@/components/ui/button";
 import { CkCard } from "@/components/creative-knowledge/ck-bits";
-import { CK_CATEGORIES, CK_CATEGORY_INFO, isCkCategory } from "@/lib/creative-knowledge";
+import { CK_CATEGORIES, CK_CATEGORY_INFO, isCkCategory, type CkCategory } from "@/lib/creative-knowledge";
 
 export const metadata = { title: "創作知識" };
 
-type SP = { q?: string; category?: string; tag?: string };
+type SP = { q?: string; category?: string; sub?: string; tag?: string };
 function href(sp: SP, patch: Partial<SP>) {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries({ ...sp, ...patch })) if (v) p.set(k, v);
@@ -20,16 +20,35 @@ function href(sp: SP, patch: Partial<SP>) {
   return qs ? `/creative/knowledge?${qs}` : "/creative/knowledge";
 }
 
+const NO_SUB = "（サブカテゴリなし）";
+const OTHER_PRIMARY = "ほかのカテゴリの知識";
+
+/** カテゴリ表示のとき：サブカテゴリごとにまとめる（候補の順 → それ以外 → なし → ほかのカテゴリが主の知識） */
+function groupBySub(items: CkListItem[], category: CkCategory) {
+  const order = CK_CATEGORY_INFO[category].subCategories;
+  const groups = new Map<string, CkListItem[]>();
+  for (const k of items) {
+    const key = k.category !== category ? OTHER_PRIMARY : (k.subCategory ?? NO_SUB);
+    groups.set(key, [...(groups.get(key) ?? []), k]);
+  }
+  const rank = (name: string) => (name === OTHER_PRIMARY ? 3000 : name === NO_SUB ? 2000 : order.includes(name) ? order.indexOf(name) : 1000);
+  return [...groups.entries()].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b, "ja"));
+}
+
 export default async function CreativeKnowledgePage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const category = isCkCategory(sp.category) ? sp.category : undefined;
   const filtered = !!(category || sp.tag || sp.q?.trim());
-  const [counts, total, items, recent] = await Promise.all([
+  const [counts, total, tags, subs, items, recent] = await Promise.all([
     ckCategoryCounts(prisma),
     prisma.creativeKnowledge.count(),
-    filtered ? listCreativeKnowledge(prisma, { category, tag: sp.tag, q: sp.q?.slice(0, 100) }) : Promise.resolve([]),
+    ckTags(prisma),
+    category ? ckSubCategories(prisma, category) : Promise.resolve([]),
+    filtered ? listCreativeKnowledge(prisma, { category, sub: sp.sub?.slice(0, 60), tag: sp.tag, q: sp.q?.slice(0, 100) }) : Promise.resolve([]),
     filtered ? Promise.resolve([]) : prisma.creativeKnowledge.findMany({ include: { categories: { select: { category: true } }, tags: { include: { tag: { select: { name: true } } } } }, orderBy: { updatedAt: "desc" }, take: 8 }),
   ]);
+  const grouped = category && !sp.sub && !sp.tag && !sp.q?.trim() ? groupBySub(items, category) : null;
+  const newHref = `/creative/knowledge/new${category ? `?category=${category}` : ""}`;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -39,59 +58,91 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
         back={filtered ? "/creative/knowledge" : "/creative"}
         actions={
           <Button asChild size="sm">
-            <Link href={`/creative/knowledge/new${category ? `?category=${category}` : ""}`}>
+            <Link href={newHref}>
               <Plus /> 追加
             </Link>
           </Button>
         }
       />
       <div className="space-y-5">
-        <p className="text-sm text-muted-foreground">物語の型・人物・感情・演出などの「創作の知識」を、読書で出会った具体例や自分の作品とつなげて蓄えます。</p>
+        {!filtered ? <p className="text-sm text-muted-foreground">物語の型・人物・感情・演出などの「創作の知識」を、読書で出会った具体例や自分の作品とつなげて蓄えます。</p> : null}
         <SearchBox initial={sp.q ?? ""} placeholder="知識・別名・タグで検索（例：敵が仲間になる）" autoFocus={false} />
 
         {filtered ? (
           <>
             <nav className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0" aria-label="カテゴリ">
-              <ChipLink href={href(sp, { category: undefined })} active={!category}>
+              <ChipLink href={href(sp, { category: undefined, sub: undefined })} active={!category}>
                 すべて
               </ChipLink>
               {CK_CATEGORIES.map((c) => (
-                <ChipLink key={c} href={href(sp, { category: category === c ? undefined : c })} active={category === c}>
+                <ChipLink key={c} href={href(sp, { category: category === c ? undefined : c, sub: undefined })} active={category === c}>
                   {CK_CATEGORY_INFO[c].emoji} {CK_CATEGORY_INFO[c].label}
                   <span className="text-xs opacity-70">{counts[c]}</span>
                 </ChipLink>
               ))}
             </nav>
+            {category ? (
+              <div className="space-y-2">
+                <h2 className="text-lg font-bold">
+                  {CK_CATEGORY_INFO[category].emoji} {CK_CATEGORY_INFO[category].no} {CK_CATEGORY_INFO[category].label}
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">{CK_CATEGORY_INFO[category].description}</span>
+                </h2>
+                {subs.length ? (
+                  <nav className="flex flex-wrap gap-2" aria-label="サブカテゴリ">
+                    {subs.map((s) => (
+                      <ChipLink key={s.name} href={href(sp, { sub: sp.sub === s.name ? undefined : s.name })} active={sp.sub === s.name} className="h-8 px-3 text-xs">
+                        {s.name}
+                        <span className="opacity-70">{s.count}</span>
+                      </ChipLink>
+                    ))}
+                  </nav>
+                ) : null}
+              </div>
+            ) : null}
             {sp.tag ? (
               <p className="text-sm">
-                #{sp.tag} の創作知識{" "}
+                <span className="font-semibold">#{sp.tag}</span> の創作知識{" "}
                 <Link href={href(sp, { tag: undefined })} className="text-primary underline">
                   解除
                 </Link>
               </p>
             ) : null}
-            {category ? <p className="text-sm text-muted-foreground">{CK_CATEGORY_INFO[category].description}</p> : null}
-            {items.length ? (
-              <>
-                <p className="text-sm text-muted-foreground">{items.length}件</p>
-                <ul className="grid gap-3 md:grid-cols-2">
-                  {items.map((k) => (
-                    <CkCard key={k.id} k={k} tagHref={(t) => href({}, { tag: t })} />
-                  ))}
-                </ul>
-              </>
-            ) : (
+            {items.length === 0 ? (
               <EmptyState
                 icon="🔍"
                 title="該当する創作知識はありません"
                 action={
                   <Button asChild>
-                    <Link href={`/creative/knowledge/new${category ? `?category=${category}` : ""}`}>
+                    <Link href={newHref}>
                       <Plus /> 創作知識を追加
                     </Link>
                   </Button>
                 }
               />
+            ) : grouped ? (
+              <div className="space-y-6">
+                {grouped.map(([name, list]) => (
+                  <section key={name}>
+                    <SectionTitle>
+                      {name} <span className="text-sm font-normal text-muted-foreground">{list.length}件</span>
+                    </SectionTitle>
+                    <ul className="grid gap-3 md:grid-cols-2">
+                      {list.map((k) => (
+                        <CkCard key={k.id} k={k} />
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">{items.length}件</p>
+                <ul className="grid gap-3 md:grid-cols-2">
+                  {items.map((k) => (
+                    <CkCard key={k.id} k={k} />
+                  ))}
+                </ul>
+              </>
             )}
           </>
         ) : (
@@ -115,6 +166,19 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
                 })}
               </ul>
             </section>
+            {tags.length ? (
+              <section>
+                <SectionTitle>🏷 タグから探す</SectionTitle>
+                <nav className="flex flex-wrap gap-2" aria-label="タグ">
+                  {tags.slice(0, 40).map((t) => (
+                    <ChipLink key={t.name} href={href({}, { tag: t.name })} active={false} className="h-8 px-3 text-xs">
+                      #{t.name}
+                      <span className="opacity-70">{t.count}</span>
+                    </ChipLink>
+                  ))}
+                </nav>
+              </section>
+            ) : null}
             {total === 0 ? (
               <EmptyState
                 icon="🧠"
