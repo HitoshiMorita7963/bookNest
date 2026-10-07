@@ -41,6 +41,12 @@ const TABLES = [
   "plot",
   "chapter",
   "scene",
+  "creativeKnowledge",
+  "creativeKnowledgeCategory",
+  "creativeKnowledgeTag",
+  "creativeKnowledgeRelation",
+  "creativeKnowledgeReference",
+  "creativeKnowledgeSource",
   "creativeLink",
   "aIConversation",
   "aIMessage",
@@ -197,7 +203,7 @@ async function plan(db: Db, f: BackupFile): Promise<Plan> {
   }
   counts.book = { total: books.length, duplicate: dupBooks };
 
-  for (const table of ["readingRecord", "readingSession", "readingGoal", "quote", "knowledgeNote", "readingPath", "creativeNote", "novelProject", "character", "characterRelationship", "worldSetting", "plot", "chapter", "scene", "creativeLink", "aIConversation", "aIMessage"] as const) {
+  for (const table of ["readingRecord", "readingSession", "readingGoal", "quote", "knowledgeNote", "readingPath", "creativeNote", "novelProject", "character", "characterRelationship", "worldSetting", "plot", "chapter", "scene", "creativeKnowledge", "creativeKnowledgeRelation", "creativeKnowledgeReference", "creativeKnowledgeSource", "creativeLink", "aIConversation", "aIMessage"] as const) {
     const rows = t[table] ?? [];
     const existing = new Set((await delegate(db, table).findMany()).map((r) => String(r.id)));
     let dup = 0;
@@ -208,6 +214,15 @@ async function plan(db: Db, f: BackupFile): Promise<Plan> {
       }
     }
     counts[table] = { total: rows.length, duplicate: dup };
+  }
+  // サンプルの創作知識は ID が違っても slug が同じなら同じものとして扱う（slug は一意）
+  const ckSlugs = new Map((await db.creativeKnowledge.findMany({ where: { slug: { not: null } }, select: { id: true, slug: true } })).map((k) => [k.slug!, k.id]));
+  for (const r of t.creativeKnowledge ?? []) {
+    const hit = r.slug ? ckSlugs.get(String(r.slug)) : undefined;
+    if (hit && !map("creativeKnowledge").has(String(r.id))) {
+      map("creativeKnowledge").set(String(r.id), hit);
+      counts.creativeKnowledge.duplicate++;
+    }
   }
   return { idMap, counts };
 }
@@ -242,7 +257,20 @@ const FK: Partial<Record<Table, Record<string, string>>> = {
   plot: { projectId: "novelProject" },
   chapter: { projectId: "novelProject" },
   scene: { chapterId: "chapter" },
+  creativeKnowledgeCategory: { knowledgeId: "creativeKnowledge" },
+  creativeKnowledgeTag: { knowledgeId: "creativeKnowledge", tagId: "tag" },
+  creativeKnowledgeRelation: { fromId: "creativeKnowledge", toId: "creativeKnowledge" },
+  creativeKnowledgeReference: {
+    knowledgeId: "creativeKnowledge",
+    bookId: "book",
+    quoteId: "quote",
+    sessionId: "readingSession",
+    recordId: "readingRecord",
+    knowledgeNoteId: "knowledgeNote",
+  },
+  creativeKnowledgeSource: { knowledgeId: "creativeKnowledge", bookId: "book" },
   creativeLink: {
+    ckId: "creativeKnowledge",
     bookId: "book",
     quoteId: "quote",
     knowledgeId: "knowledgeNote",
@@ -256,7 +284,7 @@ const FK: Partial<Record<Table, Record<string, string>>> = {
     targetNoteId: "creativeNote",
   },
 };
-const JOIN_TABLES = new Set<Table>(["creativeNoteTag", "bookAuthor", "bookTag", "bookRelation", "shelfBook", "quoteTag", "knowledgeTag", "bookKnowledge", "quoteKnowledge", "knowledgeLink", "readingPathBook"]);
+const JOIN_TABLES = new Set<Table>(["creativeKnowledgeCategory", "creativeKnowledgeTag", "creativeNoteTag", "bookAuthor", "bookTag", "bookRelation", "shelfBook", "quoteTag", "knowledgeTag", "bookKnowledge", "quoteKnowledge", "knowledgeLink", "readingPathBook"]);
 
 export async function runImport(db: Db, text: string) {
   const f = parseBackup(text);
@@ -278,7 +306,14 @@ export async function runImport(db: Db, text: string) {
             const mapped = p.idMap[ref]?.get(String(v));
             if (mapped) row[col] = mapped;
             else if (!(f.tables[ref as Table] ?? []).some((r) => String(r.id) === String(v))) {
-              if (col === "seriesId" || col === "recordId" || (table === "quote" && col === "bookId") || table === "aIConversation") row[col] = null;
+              if (
+                col === "seriesId" ||
+                (col === "recordId" && table !== "creativeKnowledgeReference") ||
+                (table === "quote" && col === "bookId") ||
+                (table === "creativeKnowledgeSource" && col === "bookId") ||
+                table === "aIConversation"
+              )
+                row[col] = null;
               else skip = true;
             }
           }
