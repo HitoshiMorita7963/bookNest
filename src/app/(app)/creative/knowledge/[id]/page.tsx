@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { Pencil } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { getCreativeKnowledge } from "@/server/services/creative-knowledge";
+import { ckRelationsOf, getCreativeKnowledge, type CkRelationView } from "@/server/services/creative-knowledge";
+import { AddCkRelationButton, RemoveCkRelationButton } from "@/components/creative-knowledge/ck-relations";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionTitle, TagChip } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
   const { id } = await params;
   const k = await getCreativeKnowledge(prisma, id);
   if (!k) notFound();
+  const relations = await ckRelationsOf(prisma, k.id);
+  const relationGroups = [...relations.reduce((m, r) => m.set(r.label, [...(m.get(r.label) ?? []), r]), new Map<string, CkRelationView[]>()).entries()];
   const aliases = lines(k.aliases);
   const sections: { title: string; node: React.ReactNode }[] = [];
   if (k.definition) sections.push({ title: "📖 定義・説明", node: <ReadMore className="prose-note text-[15px] leading-relaxed">{k.definition}</ReadMore> });
@@ -72,6 +75,39 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
             </Button>
           </div>
         )}
+
+        <section aria-label="関連知識">
+          <SectionTitle action={<AddCkRelationButton knowledgeId={k.id} title={k.title} />}>🔗 関連知識</SectionTitle>
+          {relationGroups.length ? (
+            <div className="space-y-4">
+              {relationGroups.map(([label, list]) => (
+                <div key={label}>
+                  <p className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</p>
+                  <ul className="space-y-1.5">
+                    {list.map((r) => (
+                      <li key={r.id} className="relative flex items-start gap-2 rounded-xl border bg-card p-3 hover:bg-accent/30">
+                        <Link href={`/creative/knowledge/${r.other.id}`} className="absolute inset-0 rounded-xl" aria-label={r.other.title} />
+                        <div className="min-w-0 flex-1">
+                          <p className="flex flex-wrap items-center gap-1.5 font-medium">
+                            {r.other.title}
+                            <CkCategoryBadge category={r.other.category} />
+                          </p>
+                          {r.note ? <p className="mt-0.5 text-xs text-primary">{r.note}</p> : null}
+                          {r.other.summary ? <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{r.other.summary}</p> : null}
+                        </div>
+                        <RemoveCkRelationButton id={r.id} title={r.other.title} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+              「つなげる」から、上位・下位・似ている・対になる・前提・組み合わせなどの関係で、ほかの創作知識とつなげられます。
+            </p>
+          )}
+        </section>
 
         <p className="text-xs text-muted-foreground">
           {k.origin === "seed" ? "サンプル" : "自分で作成"} ・ 作成 {format(k.createdAt, "yyyy/M/d")} ・ 更新 {format(k.updatedAt, "yyyy/M/d")}

@@ -126,3 +126,44 @@ describe("creative knowledge categories and tags", () => {
     expect((await ckTags(db)).find((t) => t.name === "成長")?.count).toBe(2);
   });
 });
+
+describe("relations between creative knowledge", () => {
+  it("adds typed relations and shows them from both sides with the right wording", async () => {
+    const { addCkRelation, ckRelationsOf } = await import("@/server/services/creative-knowledge");
+    const foreshadow = await createCreativeKnowledge(db, { title: "伏線", category: "PLOT" });
+    const payoff = await createCreativeKnowledge(db, { title: "伏線回収", category: "PLOT" });
+    const twist = await createCreativeKnowledge(db, { title: "どんでん返し", category: "PLOT" });
+    // 伏線回収から見て、伏線は「上位の知識」
+    await addCkRelation(db, { fromId: payoff.id, toId: foreshadow.id, type: "parent", note: "回収には伏線が必要" });
+    await addCkRelation(db, { fromId: payoff.id, toId: twist.id, type: "combination" });
+    const fromPayoff = await ckRelationsOf(db, payoff.id);
+    expect(fromPayoff.map((r) => [r.label, r.other.title])).toEqual([
+      ["上位の知識", "伏線"],
+      ["組み合わせ", "どんでん返し"],
+    ]);
+    expect(fromPayoff[0].note).toBe("回収には伏線が必要");
+    // 逆側（伏線）から見ると「下位の知識」
+    expect((await ckRelationsOf(db, foreshadow.id)).map((r) => [r.label, r.other.title])).toEqual([["下位の知識", "伏線回収"]]);
+  });
+
+  it("does not duplicate symmetric relations, rejects self links, and removes on delete", async () => {
+    const { addCkRelation, removeCkRelation, ckRelationsOf, pickCreativeKnowledge } = await import("@/server/services/creative-knowledge");
+    const a = await createCreativeKnowledge(db, { title: "ライバル", category: "CHARACTER" });
+    const b = await createCreativeKnowledge(db, { title: "宿敵", category: "TROPE", aliases: "因縁の相手" });
+    await addCkRelation(db, { fromId: a.id, toId: b.id, type: "similar" });
+    await addCkRelation(db, { fromId: b.id, toId: a.id, type: "similar" });
+    expect(await db.creativeKnowledgeRelation.count()).toBe(1);
+    // 向きのある関係は逆向きでも別の関係として持てる
+    await addCkRelation(db, { fromId: b.id, toId: a.id, type: "prerequisite" });
+    expect(await db.creativeKnowledgeRelation.count()).toBe(2);
+    await expect(addCkRelation(db, { fromId: a.id, toId: a.id, type: "related" })).rejects.toThrow();
+    // 候補には自分自身を出さない。別名でも探せる
+    expect((await pickCreativeKnowledge(db, "", a.id)).map((k) => k.title)).toEqual(["宿敵"]);
+    expect((await pickCreativeKnowledge(db, "因縁")).map((k) => k.title)).toEqual(["宿敵"]);
+    const rel = (await ckRelationsOf(db, a.id)).find((r) => r.type === "similar")!;
+    await removeCkRelation(db, rel.id);
+    expect(await db.creativeKnowledgeRelation.count()).toBe(1);
+    await deleteCreativeKnowledge(db, b.id);
+    expect(await db.creativeKnowledgeRelation.count()).toBe(0);
+  });
+});

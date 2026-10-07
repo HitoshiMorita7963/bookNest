@@ -24,3 +24,6 @@ tests/.tmp/
 playwright-report/
 test-results/
 tests/.e2e/
+
+# 本番データのバックアップ（手元のみ）
+data/backups/
