@@ -96,3 +96,41 @@ test("創作知識：言い換えで検索でき、全体検索にも出る", as
   await expect(page.getByRole("heading", { name: /創作知識/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "E2E寝返り" })).toBeVisible();
 });
+
+test("創作知識：関連知識をつなげる（種類つき・新規作成も）・解除する", async ({ page }) => {
+  await page.goto("/creative/knowledge/new?category=PLOT");
+  await page.getByLabel("タイトル *").fill("E2E伏線");
+  await page.getByRole("button", { name: "創作知識を保存" }).click();
+  await expect(page).toHaveURL(/\/creative\/knowledge\/c[a-z0-9]+$/);
+  const foreshadowUrl = page.url();
+
+  await page.goto("/creative/knowledge/new?category=PLOT");
+  await page.getByLabel("タイトル *").fill("E2E伏線回収");
+  await page.getByRole("button", { name: "創作知識を保存" }).click();
+  await expect(page).toHaveURL(/\/creative\/knowledge\/c[a-z0-9]+$/);
+
+  // 伏線回収 →（上位の知識）→ 伏線
+  await page.getByRole("button", { name: "つなげる" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("radio", { name: "上位の知識" }).click();
+  await dialog.getByLabel("創作知識を検索").fill("E2E伏線");
+  await dialog.getByRole("button", { name: /^🧠 E2E伏線 / }).click();
+  await expect(page.getByText("「E2E伏線」とつなげました")).toBeVisible();
+  const section = page.getByRole("region", { name: "関連知識" });
+  await expect(section.getByText("上位の知識")).toBeVisible();
+  await expect(section.getByRole("link", { name: "E2E伏線" })).toBeVisible();
+
+  // まだない知識を作ってつなげる（組み合わせ）
+  await page.getByRole("button", { name: "つなげる" }).click();
+  await dialog.getByRole("radio", { name: "組み合わせ" }).click();
+  await dialog.getByLabel("創作知識を検索").fill("E2Eどんでん返し");
+  await dialog.getByRole("button", { name: "「E2Eどんでん返し」を新しく作ってつなげる" }).click();
+  await expect(section.getByRole("link", { name: "E2Eどんでん返し" })).toBeVisible();
+
+  // 伏線側からは「下位の知識」として見える
+  await page.goto(foreshadowUrl);
+  await expect(page.getByRole("region", { name: "関連知識" }).getByText("下位の知識")).toBeVisible();
+  await page.getByRole("button", { name: "「E2E伏線回収」とのつながりを解除" }).click();
+  await expect(page.getByText("つながりを解除しました")).toBeVisible();
+  await expect(page.getByRole("region", { name: "関連知識" }).getByRole("link", { name: "E2E伏線回収" })).toHaveCount(0);
+});

@@ -4,9 +4,9 @@
  */
 import type { Prisma } from "@prisma/client";
 import type { Db } from "@/lib/db";
-import { NotFoundError } from "@/lib/errors";
+import { AppError, NotFoundError } from "@/lib/errors";
 import { creativeKnowledgeInputSchema, type CreativeKnowledgeInput } from "@/lib/validators";
-import { CK_CATEGORIES, type CkCategory } from "@/lib/creative-knowledge";
+import { CK_CATEGORIES, CK_RELATION_LABEL, CK_RELATION_REVERSE_LABEL, CK_RELATION_TYPES, type CkCategory, type CkRelationType } from "@/lib/creative-knowledge";
 import { cleanupOrphans, upsertTags } from "./books";
 
 type Tx = Prisma.TransactionClient | Db;
@@ -125,4 +125,70 @@ export async function ckSubCategories(db: Db, category: string) {
     .filter((r) => r.subCategory)
     .map((r) => ({ name: r.subCategory!, count: r._count._all }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja"));
+}
+
+/* ---------------- 知識同士の関係 ---------------- */
+
+/** 向きを持たない関係（逆向きの同じ関係があれば、それを使う） */
+const SYMMETRIC_TYPES = new Set(["related", "similar", "opposite", "combination"]);
+
+export async function addCkRelation(db: Db, input: { fromId: string; toId: string; type: string; note?: string | null }) {
+  const type = (CK_RELATION_TYPES as readonly string[]).includes(input.type) ? input.type : "related";
+  if (input.fromId === input.toId) throw new AppError("同じ知識同士はつなげられません", "VALIDATION");
+  const found = await db.creativeKnowledge.count({ where: { id: { in: [input.fromId, input.toId] } } });
+  if (found !== 2) throw new NotFoundError("創作知識");
+  const note = input.note?.trim().slice(0, 100) || null;
+  if (SYMMETRIC_TYPES.has(type)) {
+    const reverse = await db.creativeKnowledgeRelation.findUnique({ where: { fromId_toId_type: { fromId: input.toId, toId: input.fromId, type } } });
+    if (reverse) return note ? db.creativeKnowledgeRelation.update({ where: { id: reverse.id }, data: { note } }) : reverse;
+  }
+  return db.creativeKnowledgeRelation.upsert({
+    where: { fromId_toId_type: { fromId: input.fromId, toId: input.toId, type } },
+    create: { fromId: input.fromId, toId: input.toId, type, note },
+    update: { note },
+  });
+}
+
+export async function removeCkRelation(db: Db, id: string) {
+  await db.creativeKnowledgeRelation.deleteMany({ where: { id } });
+}
+
+export interface CkRelationView {
+  id: string;
+  /** この知識から見た関係の種類（例：上位の知識） */
+  label: string;
+  type: CkRelationType;
+  note: string | null;
+  other: { id: string; title: string; category: string; summary: string };
+}
+
+/** 詳細画面用：両方向の関係を、この知識から見た言い方にそろえて返す（種類の順） */
+export async function ckRelationsOf(db: Db, id: string): Promise<CkRelationView[]> {
+  const select = { id: true, title: true, category: true, summary: true } as const;
+  const [from, to] = await Promise.all([
+    db.creativeKnowledgeRelation.findMany({ where: { fromId: id }, include: { to: { select } } }),
+    db.creativeKnowledgeRelation.findMany({ where: { toId: id }, include: { from: { select } } }),
+  ]);
+  const asType = (t: string) => ((CK_RELATION_TYPES as readonly string[]).includes(t) ? (t as CkRelationType) : "related");
+  const views: CkRelationView[] = [
+    ...from.map((r) => ({ id: r.id, type: asType(r.type), label: CK_RELATION_LABEL[asType(r.type)], note: r.note, other: r.to })),
+    ...to.map((r) => ({ id: r.id, type: asType(r.type), label: CK_RELATION_REVERSE_LABEL[asType(r.type)], note: r.note, other: r.from })),
+  ];
+  // 構造（上位・下位・前提）→ 使い方（組み合わせ）→ 比較（似ている・対になる）→ その他の関連 の順
+  const order = ["上位の知識", "下位の知識", "前提となる", "これを前提にする", "組み合わせ", "似ている", "対になる", "関連"];
+  return views.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label) || a.other.title.localeCompare(b.other.title, "ja"));
+}
+
+/** 関連付けの相手を選ぶための候補（タイトル・別名の部分一致） */
+export async function pickCreativeKnowledge(db: Db, q: string, excludeId?: string) {
+  const t = q.trim().slice(0, 60);
+  return db.creativeKnowledge.findMany({
+    where: {
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      ...(t ? { OR: [{ title: { contains: t } }, { aliases: { contains: t } }, { subCategory: { contains: t } }] } : {}),
+    },
+    select: { id: true, title: true, category: true },
+    orderBy: t ? { title: "asc" } : { updatedAt: "desc" },
+    take: 30,
+  });
 }
