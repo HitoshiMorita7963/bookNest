@@ -167,3 +167,35 @@ describe("relations between creative knowledge", () => {
     expect(await db.creativeKnowledgeRelation.count()).toBe(0);
   });
 });
+
+describe("favorites and my notes", () => {
+  it("toggles favorites and filters by them", async () => {
+    const { toggleCkFavorite } = await import("@/server/services/creative-knowledge");
+    const a = await createCreativeKnowledge(db, { ...base, title: "a" });
+    await createCreativeKnowledge(db, { ...base, title: "b" });
+    expect(await toggleCkFavorite(db, a.id)).toBe(true);
+    expect((await listCreativeKnowledge(db, { favorite: true })).map((k) => k.title)).toEqual(["a"]);
+    expect(await toggleCkFavorite(db, a.id)).toBe(false);
+    expect(await listCreativeKnowledge(db, { favorite: true })).toEqual([]);
+    await expect(toggleCkFavorite(db, "missing")).rejects.toThrow();
+  });
+
+  it("keeps my note separate from general knowledge", async () => {
+    const { setCkMyNote } = await import("@/server/services/creative-knowledge");
+    const { searchCreativeKnowledge } = await import("@/server/services/creative-knowledge-search");
+    const seed = await createCreativeKnowledge(db, base, { slug: "enemy-to-ally", origin: "seed" });
+    await setCkMyNote(db, seed.id, "  自分の小説では、思想の対立を残したまま共闘させたい  ");
+    let got = await getCreativeKnowledge(db, seed.id);
+    expect(got?.myNote).toBe("自分の小説では、思想の対立を残したまま共闘させたい");
+    // 自分のメモはサンプルの「編集」扱いにしない（サンプル更新で上書きしてよい一般の知識とは別）
+    expect(got?.userEdited).toBe(false);
+    // 一般の知識を更新しても、自分のメモは残る
+    await updateCreativeKnowledge(db, seed.id, { ...base, summary: "更新した概要" });
+    got = await getCreativeKnowledge(db, seed.id);
+    expect(got?.myNote).toContain("思想の対立");
+    expect(got?.summary).toBe("更新した概要");
+    // 自分のメモの言葉でも検索できる
+    expect((await searchCreativeKnowledge(db, "思想の対立", { withRelated: false })).map((h) => h.reason)).toEqual(["自分のメモに一致"]);
+    await expect(setCkMyNote(db, seed.id, "あ".repeat(10001))).rejects.toThrow();
+  });
+});

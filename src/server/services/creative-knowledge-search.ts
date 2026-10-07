@@ -61,6 +61,7 @@ export async function searchCreativeKnowledge(
     const sub = norm(k.subCategory ?? "");
     const body = norm([k.summary, k.definition, k.effects, k.patterns, k.flow, k.usage, k.cautions].join("\n"));
     const refs = norm(k.references.map((r) => [r.comment, r.workTitle, r.location].filter(Boolean).join(" ")).join("\n"));
+    const mine = norm(k.myNote);
 
     let score = 0;
     let reason = "";
@@ -85,6 +86,8 @@ export async function searchCreativeKnowledge(
       if (sub.includes(t) || cats.some((c) => c.includes(t))) note(3, "カテゴリに一致");
       if (body.includes(t)) note(2, "説明に一致");
       if (refs.includes(t)) note(1.5, "参考読書のメモに一致");
+      // 自分の言葉で書いたメモは、探すときの手がかりとして強めに扱う
+      if (mine.includes(t)) note(3, "自分のメモに一致");
     }
 
     // 言い換え・語順の違い（2-gram の重なり）

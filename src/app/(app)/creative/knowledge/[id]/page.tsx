@@ -12,6 +12,7 @@ import { SectionTitle, TagChip } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
 import { CkCategoryBadge, FlowChain, ItemList } from "@/components/creative-knowledge/ck-bits";
 import { CkMenu } from "@/components/creative-knowledge/ck-menu";
+import { CkFavoriteButton, CkMyNote } from "@/components/creative-knowledge/ck-personal";
 import { ReadMore } from "@/components/ui/read-more";
 import { CK_REFERENCE_ICON, CK_REFERENCE_LABEL, lines } from "@/lib/creative-knowledge";
 
@@ -38,7 +39,12 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="🧠 創作知識" back="/creative/knowledge" actions={<CkMenu id={k.id} title={k.title} />} />
+      <PageHeader title="🧠 創作知識" back="/creative/knowledge" actions={
+          <>
+            <CkFavoriteButton id={k.id} initial={k.isFavorite} />
+            <CkMenu id={k.id} title={k.title} />
+          </>
+        } />
       <article className="space-y-7">
         <header className="space-y-3">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -77,6 +83,13 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
             </Button>
           </div>
         )}
+
+        <section aria-label="自分のメモ">
+          <SectionTitle>
+            📝 自分のメモ <span className="text-xs font-normal text-muted-foreground">一般的な知識とは別に保存</span>
+          </SectionTitle>
+          <CkMyNote id={k.id} initial={k.myNote} />
+        </section>
 
         <section aria-label="参考にした読書">
           <SectionTitle action={<AddCkReferenceButton knowledgeId={k.id} title={k.title} />}>📚 参考にした読書</SectionTitle>

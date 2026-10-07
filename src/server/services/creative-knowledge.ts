@@ -179,6 +179,29 @@ export async function ckRelationsOf(db: Db, id: string): Promise<CkRelationView[
   return views.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label) || a.other.title.localeCompare(b.other.title, "ja"));
 }
 
+/* ---------------- お気に入り・自分のメモ ---------------- */
+
+/** お気に入りを切り替えて、新しい状態を返す */
+export async function toggleCkFavorite(db: Db, id: string): Promise<boolean> {
+  const cur = await db.creativeKnowledge.findUnique({ where: { id }, select: { isFavorite: true } });
+  if (!cur) throw new NotFoundError("創作知識");
+  const next = !cur.isFavorite;
+  await db.creativeKnowledge.update({ where: { id }, data: { isFavorite: next } });
+  return next;
+}
+
+/**
+ * 自分のメモを保存する。一般的な知識（定義・効果など）とは別の列なので、
+ * サンプルの知識に自分のメモを書いても「自分で編集した」扱いにはしない（サンプル更新でメモは消えない）。
+ */
+export async function setCkMyNote(db: Db, id: string, note: string) {
+  const text = note.replace(/\r\n/g, "\n").trim();
+  if (text.length > 10000) throw new AppError("自分のメモは10000文字以内で入力してください", "VALIDATION");
+  const cur = await db.creativeKnowledge.count({ where: { id } });
+  if (!cur) throw new NotFoundError("創作知識");
+  await db.creativeKnowledge.update({ where: { id }, data: { myNote: text } });
+}
+
 /** 関連付けの相手を選ぶための候補（タイトル・別名の部分一致） */
 export async function pickCreativeKnowledge(db: Db, q: string, excludeId?: string) {
   const t = q.trim().slice(0, 60);
