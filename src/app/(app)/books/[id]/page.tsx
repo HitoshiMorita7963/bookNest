@@ -14,6 +14,7 @@ import { QuoteCard } from "@/components/quotes/quote-card";
 import { formatNumber } from "@/lib/utils";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
 import { ReadMore } from "@/components/ui/read-more";
+import { SaveToCkButton } from "@/components/creative-knowledge/save-to-ck";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -167,7 +168,10 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
                           {s.note}
                         </ReadMore>
                       </div>
-                      <DeleteSessionButton id={s.id} bookId={book.id} />
+                      <div className="flex shrink-0 flex-col">
+                        <SaveToCkButton source={{ kind: "session", id: s.id }} compact />
+                        <DeleteSessionButton id={s.id} bookId={book.id} />
+                      </div>
                     </li>
                   ))}
               </ol>

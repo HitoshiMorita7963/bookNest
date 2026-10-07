@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { creativeUsageOf } from "@/server/services/creative";
+import { ckUsageOfSource } from "@/server/services/creative-knowledge-references";
+import { CkCategoryBadge } from "@/components/creative-knowledge/ck-bits";
 import { SectionTitle } from "@/components/books/bits";
 import { CategoryBadge } from "./bits";
 import { UseInCreativeButton } from "./use-in-creative";
@@ -19,11 +21,32 @@ export async function CreativeUsageSection({
   defaultTitle?: string;
   defaultContent?: string;
 }) {
-  const usage = await creativeUsageOf(prisma, source);
+  const [usage, knowledgeUsage] = await Promise.all([
+    creativeUsageOf(prisma, source),
+    ckUsageOfSource(prisma, { kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }),
+  ]);
   const heading = source.kind === "book" ? "この本から生まれた創作" : source.kind === "quote" ? "このフレーズを使っている創作" : "この知識を使っている創作";
   return (
     <section aria-label="創作への利用">
       <SectionTitle action={<UseInCreativeButton source={source} defaultTitle={defaultTitle} defaultContent={defaultContent} />}>✍️ 創作への利用</SectionTitle>
+      {knowledgeUsage.length ? (
+        <div className="mb-3 space-y-1.5">
+          <p className="text-xs text-muted-foreground">{source.kind === "book" ? "この本（フレーズ・読書メモ・感想を含む）" : "これ"}を参考にしている創作知識</p>
+          <ul className="space-y-1.5">
+            {knowledgeUsage.map((k) => (
+              <li key={k.id}>
+                <Link href={`/creative/knowledge/${k.id}`} className="block rounded-lg border bg-card px-3 py-2 text-sm hover:bg-accent/50">
+                  <span className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-medium">🧠 {k.title}</span>
+                    <CkCategoryBadge category={k.category} />
+                  </span>
+                  {k.comments[0] ? <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">💭 {k.comments[0]}</span> : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {usage.projects.length || usage.notes.length ? (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">{heading}</p>
@@ -62,8 +85,8 @@ export async function CreativeUsageSection({
             </ul>
           ) : null}
         </div>
-      ) : (
-        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">「創作に使う」から、創作メモを作ったり小説の人物・シーンに関連付けたりできます。</p>
+      ) : knowledgeUsage.length ? null : (
+        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">「創作に使う」から、創作メモ・創作知識を作ったり、小説の人物・シーンに関連付けたりできます。</p>
       )}
     </section>
   );

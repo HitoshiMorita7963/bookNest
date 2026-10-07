@@ -3,13 +3,14 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Link2, Loader2, PenLine, Search, Sparkles } from "lucide-react";
+import { Brain, Link2, Loader2, PenLine, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Switch } from "@/components/ui/form-controls";
 import { Sheet, SheetContent, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/overlays";
 import { CategoryChips, CategoryBadge } from "./bits";
 import { NoteForm } from "./note-form";
 import { TargetPicker, type TargetValue } from "./target-picker";
+import { SaveToCkBody } from "@/components/creative-knowledge/save-to-ck";
 import { createLinkAction, pickCreativeNotesAction } from "@/server/actions/creative";
 import { LINK_SOURCE_LABEL, type CreativeCategory, type LinkSourceKind, type LinkTargetKind } from "@/lib/constants";
 
@@ -89,7 +90,7 @@ function UseInCreativeBody({
 
   return (
     <Tabs value={mode} onValueChange={setMode}>
-      <TabsList className="grid grid-cols-3">
+      <TabsList className="grid grid-cols-4">
         <TabsTrigger value="note" className="px-1 text-xs sm:text-sm">
           <PenLine className="size-4" /> メモを作る
         </TabsTrigger>
@@ -98,6 +99,9 @@ function UseInCreativeBody({
         </TabsTrigger>
         <TabsTrigger value="existing" className="px-1 text-xs sm:text-sm">
           <Search className="size-4" /> 既存のメモ
+        </TabsTrigger>
+        <TabsTrigger value="ck" className="px-1 text-xs sm:text-sm">
+          <Brain className="size-4" /> 創作知識
         </TabsTrigger>
       </TabsList>
 
@@ -147,6 +151,10 @@ function UseInCreativeBody({
 
       <TabsContent value="existing">
         <ExistingNotePicker source={source} onDone={onDone} />
+      </TabsContent>
+
+      <TabsContent value="ck">
+        <SaveToCkBody source={{ kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }} onDone={onDone} />
       </TabsContent>
     </Tabs>
   );
