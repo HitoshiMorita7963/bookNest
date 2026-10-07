@@ -41,7 +41,7 @@ const FIELD_LABEL: Record<string, string> = {
   summary: "概要",
 };
 const TARGET_LABEL: Record<string, string> = { project: "作品", character: "人物", world: "世界観", plot: "プロット", chapter: "章", scene: "シーン" };
-const CREATIVE_ICON: Record<string, string> = { note: "💡", project: "✍️", character: "👤", world: "🌍", plot: "📋", chapter: "📖", scene: "🎬" };
+const CREATIVE_ICON: Record<string, string> = { note: "💡", ck: "🧭", project: "✍️", character: "👤", world: "🌍", plot: "📋", chapter: "📖", scene: "🎬" };
 
 export function EditorChat({
   projectId,

@@ -14,6 +14,7 @@ import { CkCategoryBadge, FlowChain, ItemList } from "@/components/creative-know
 import { CkMenu } from "@/components/creative-knowledge/ck-menu";
 import { CkFavoriteButton, CkMyNote } from "@/components/creative-knowledge/ck-personal";
 import { ReadMore } from "@/components/ui/read-more";
+import { CreativeUsageSection } from "@/components/creative/usage-section";
 import { CK_REFERENCE_ICON, CK_REFERENCE_LABEL, lines } from "@/lib/creative-knowledge";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -153,6 +154,8 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
             </p>
           )}
         </section>
+
+        <CreativeUsageSection source={{ kind: "ck", id: k.id }} defaultTitle={k.title} />
 
         <p className="text-xs text-muted-foreground">
           {k.origin === "seed" ? "サンプル" : "自分で作成"} ・ 作成 {format(k.createdAt, "yyyy/M/d")} ・ 更新 {format(k.updatedAt, "yyyy/M/d")}

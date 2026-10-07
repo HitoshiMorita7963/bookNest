@@ -9,6 +9,7 @@ import { creativeNoteInputSchema, linkInputSchema, type CreativeNoteInput, type 
 import { CREATIVE_CATEGORY_LABEL, LINK_TARGET_LABEL, NOTE_STATUSES, type CreativeCategory, type LinkSourceKind, type LinkTargetKind } from "@/lib/constants";
 import { cleanupOrphans, upsertTags } from "./books";
 import { quoted } from "@/lib/quote-marks";
+import { ckCategoryLabel } from "@/lib/creative-knowledge";
 
 type Tx = Prisma.TransactionClient | Db;
 
@@ -95,7 +96,7 @@ export async function listCreativeNotes(db: Db, query: CreativeNoteQuery = {}) {
 }
 
 export async function getCreativeNote(db: Db, id: string) {
-  return db.creativeNote.findUnique({
+  const n = await db.creativeNote.findUnique({
     where: { id },
     include: {
       tags: { include: { tag: true } },
@@ -103,6 +104,7 @@ export async function getCreativeNote(db: Db, id: string) {
       usedIn: { include: linkTargetInclude, orderBy: { createdAt: "desc" } },
     },
   });
+  return n && { ...n, materials: await attachCk(db, n.materials) };
 }
 
 /* ---------------- 紐付け（CreativeLink） ---------------- */
@@ -124,12 +126,22 @@ export const linkTargetInclude = {
   targetNote: { select: { id: true, title: true, category: true } },
 } satisfies Prisma.CreativeLinkInclude;
 
-const SOURCE_COLUMN: Record<LinkSourceKind, "bookId" | "quoteId" | "knowledgeId" | "noteId"> = {
+const SOURCE_COLUMN: Record<LinkSourceKind, "bookId" | "quoteId" | "knowledgeId" | "ckId" | "noteId"> = {
   book: "bookId",
   quote: "quoteId",
   knowledge: "knowledgeId",
+  ck: "ckId",
   note: "noteId",
 };
+
+/** CreativeLink.ckId は外部キー（リレーション）がないので、表示用の創作知識はここで別に読み込んで付ける */
+export type CkBrief = { id: string; title: string; category: string };
+export async function attachCk<T extends { ckId: string | null }>(db: Tx, rows: T[]): Promise<(T & { ck: CkBrief | null })[]> {
+  const ids = [...new Set(rows.map((r) => r.ckId).filter((x): x is string => !!x))];
+  const found = ids.length ? await db.creativeKnowledge.findMany({ where: { id: { in: ids } }, select: { id: true, title: true, category: true } }) : [];
+  const byId = new Map(found.map((k) => [k.id, k]));
+  return rows.map((r) => Object.assign(r, { ck: r.ckId ? (byId.get(r.ckId) ?? null) : null }));
+}
 const TARGET_COLUMN: Record<LinkTargetKind, "projectId" | "characterId" | "worldId" | "plotId" | "chapterId" | "sceneId" | "targetNoteId"> = {
   project: "projectId",
   character: "characterId",
@@ -148,8 +160,10 @@ async function assertSourceExists(db: Tx, kind: LinkSourceKind, id: string) {
         ? await db.quote.findUnique({ where: { id }, select: { id: true } })
         : kind === "knowledge"
           ? await db.knowledgeNote.findUnique({ where: { id }, select: { id: true } })
-          : await db.creativeNote.findUnique({ where: { id }, select: { id: true } });
-  if (!found) throw new NotFoundError(kind === "book" ? "本" : kind === "quote" ? "フレーズ" : kind === "knowledge" ? "知識" : "創作メモ");
+          : kind === "ck"
+            ? await db.creativeKnowledge.findUnique({ where: { id }, select: { id: true } })
+            : await db.creativeNote.findUnique({ where: { id }, select: { id: true } });
+  if (!found) throw new NotFoundError(kind === "book" ? "本" : kind === "quote" ? "フレーズ" : kind === "knowledge" ? "知識" : kind === "ck" ? "創作知識" : "創作メモ");
 }
 
 /** 紐付け先から作品 ID を求める（作品内の要素なら必ず作品にも属させる） */
@@ -232,7 +246,7 @@ export async function deleteLink(db: Db, id: string) {
 /* ---------------- 表示用ラベル ---------------- */
 
 type TargetLinkRow = Prisma.CreativeLinkGetPayload<{ include: typeof linkTargetInclude }>;
-type SourceLinkRow = Prisma.CreativeLinkGetPayload<{ include: typeof linkSourceInclude }>;
+type SourceLinkRow = Prisma.CreativeLinkGetPayload<{ include: typeof linkSourceInclude }> & { ck?: CkBrief | null };
 
 export function describeTarget(l: TargetLinkRow): { kind: LinkTargetKind; label: string; href: string; projectId: string | null; projectTitle: string | null } {
   if (l.scene) return { kind: "scene", label: l.scene.title, href: `/creative/projects/${l.scene.chapter.projectId}/scenes/${l.scene.id}`, projectId: l.scene.chapter.projectId, projectTitle: l.project?.title ?? null };
@@ -248,6 +262,7 @@ export function describeSource(l: SourceLinkRow): { kind: LinkSourceKind; label:
   if (l.book) return { kind: "book", label: `『${l.book.title}』`, href: `/books/${l.book.id}` };
   if (l.quote) return { kind: "quote", label: quoted(`${l.quote.text.slice(0, 60)}${l.quote.text.length > 60 ? "…" : ""}`), sub: l.quote.book ? `『${l.quote.book.title}』` : undefined, href: `/quotes/${l.quote.id}` };
   if (l.knowledge) return { kind: "knowledge", label: l.knowledge.title, href: `/knowledge/${l.knowledge.id}` };
+  if (l.ckId) return { kind: "ck", label: l.ck?.title ?? "創作知識", sub: l.ck ? ckCategoryLabel(l.ck.category) : undefined, href: `/creative/knowledge/${l.ckId}` };
   const cat = (l.note?.category ?? "OTHER") as CreativeCategory;
   return { kind: "note", label: l.note?.title ?? "創作メモ", sub: CREATIVE_CATEGORY_LABEL[cat], href: `/creative/notes/${l.note?.id}` };
 }

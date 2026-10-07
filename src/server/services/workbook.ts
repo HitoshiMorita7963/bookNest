@@ -112,6 +112,7 @@ export async function buildSheets(db: Db): Promise<Sheet[]> {
     include: { categories: { select: { category: true } }, tags: { include: { tag: { select: { name: true } } } } },
     orderBy: [{ category: "asc" }, { title: "asc" }],
   });
+  const ckTitle = new Map(cks.map((k) => [k.id, k.title]));
 
   const sheets: Sheet[] = [
     {
@@ -305,7 +306,9 @@ export async function buildSheets(db: Db): Promise<Sheet[]> {
             ? ["quote", l.quote.text]
             : l.knowledge
               ? ["knowledge", l.knowledge.title]
-              : ["note", l.note?.title];
+              : l.ckId
+                ? ["ck", ckTitle.get(l.ckId)]
+                : ["note", l.note?.title];
         const [dstKind, dst]: [LinkTargetKind, string | undefined] = l.scene
           ? ["scene", l.scene.title]
           : l.chapter

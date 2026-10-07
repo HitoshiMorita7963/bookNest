@@ -126,6 +126,7 @@ export const LINK_TARGET_LABEL: Record<LinkTargetKind, string> = {
   scene: "シーン",
   note: "創作メモ",
 };
-export const LINK_SOURCE_KINDS = ["book", "quote", "knowledge", "note"] as const;
+export const LINK_SOURCE_KINDS = ["book", "quote", "knowledge", "ck", "note"] as const;
 export type LinkSourceKind = (typeof LINK_SOURCE_KINDS)[number];
-export const LINK_SOURCE_LABEL: Record<LinkSourceKind, string> = { book: "本", quote: "フレーズ", knowledge: "知識", note: "創作メモ" };
+export const LINK_SOURCE_ICON: Record<LinkSourceKind, string> = { book: "📚", quote: "💬", knowledge: "🧠", ck: "🧭", note: "💡" };
+export const LINK_SOURCE_LABEL: Record<LinkSourceKind, string> = { book: "本", quote: "フレーズ", knowledge: "知識", ck: "創作知識", note: "創作メモ" };

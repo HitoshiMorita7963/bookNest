@@ -11,6 +11,8 @@ import { TargetPicker, type TargetValue } from "./target-picker";
 import { pickBooksAction } from "@/server/actions/books";
 import { pickKnowledgeAction, pickQuotesAction } from "@/server/actions/knowledge";
 import { createLinkAction, pickCreativeNotesAction } from "@/server/actions/creative";
+import { pickCreativeKnowledgeAction } from "@/server/actions/creative-knowledge";
+import { ckCategoryLabel } from "@/lib/creative-knowledge";
 import { LINK_SOURCE_KINDS, LINK_SOURCE_LABEL, REFERENCE_PURPOSES, type LinkSourceKind, type LinkTargetKind } from "@/lib/constants";
 import { cn, truncate } from "@/lib/utils";
 import { quoted } from "@/lib/quote-marks";
@@ -25,11 +27,12 @@ async function search(kind: LinkSourceKind, q: string): Promise<Option[]> {
   if (kind === "book") return (await pickBooksAction(q)).map((b) => ({ id: b.id, label: `『${b.title}』`, sub: b.authors.map((a) => a.author.name).join("、") }));
   if (kind === "quote") return (await pickQuotesAction(q)).map((x) => ({ id: x.id, label: quoted(truncate(x.text, 50)), sub: x.book ? `『${x.book.title}』` : undefined }));
   if (kind === "knowledge") return (await pickKnowledgeAction(q)).map((k) => ({ id: k.id, label: `🧠 ${k.title}`, sub: k.category ?? undefined }));
+  if (kind === "ck") return (await pickCreativeKnowledgeAction(q)).map((k) => ({ id: k.id, label: `🧭 ${k.title}`, sub: ckCategoryLabel(k.category) }));
   return (await pickCreativeNotesAction(q)).map((n) => ({ id: n.id, label: `💡 ${n.title}` }));
 }
 
 /**
- * 参考資料を追加：本・フレーズ・知識・創作メモ → 作品（または人物・シーンなど）
+ * 参考資料を追加：本・フレーズ・知識・創作知識・創作メモ → 作品（または人物・シーンなど）
  * fixedTarget を渡すと、その要素（例：人物の画面ならその人物）に固定する
  */
 export function AddReferenceButton({
@@ -90,7 +93,7 @@ function ReferenceBody({ projectId, fixedTarget, onDone }: { projectId: string; 
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="資料の種類">
+      <div className="grid grid-cols-5 gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="資料の種類">
         {LINK_SOURCE_KINDS.map((k) => (
           <button
             key={k}
@@ -102,7 +105,7 @@ function ReferenceBody({ projectId, fixedTarget, onDone }: { projectId: string; 
               setSelected(null);
               setItems(null);
             }}
-            className={cn("h-9 rounded-lg text-sm font-medium", kind === k ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
+            className={cn("h-9 rounded-lg px-0.5 text-xs font-medium sm:text-sm", kind === k ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
           >
             {LINK_SOURCE_LABEL[k]}
           </button>

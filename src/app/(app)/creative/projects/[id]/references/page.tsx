@@ -5,10 +5,10 @@ import { EmptyState, SectionTitle } from "@/components/books/bits";
 import { ChipLink } from "@/components/ui/chip-link";
 import { LinkList } from "@/components/creative/note-client";
 import { AddReferenceButton } from "@/components/creative/reference-picker";
-import { LINK_SOURCE_KINDS, LINK_SOURCE_LABEL, LINK_TARGET_LABEL, type LinkSourceKind } from "@/lib/constants";
+import { LINK_SOURCE_KINDS, LINK_SOURCE_LABEL, LINK_TARGET_LABEL, type LinkSourceKind, LINK_SOURCE_ICON } from "@/lib/constants";
 
 export const metadata = { title: "参考資料" };
-const ICON = { book: "📚", quote: "💬", knowledge: "🧠", note: "💡" } as const;
+const ICON = LINK_SOURCE_ICON;
 
 export default async function ReferencesPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ type?: string }> }) {
   const { id } = await params;
@@ -30,7 +30,7 @@ export default async function ReferencesPage({ params, searchParams }: { params:
   return (
     <section className="space-y-4">
       <SectionTitle action={<AddReferenceButton projectId={id} />}>📚 参考資料</SectionTitle>
-      <p className="text-sm text-muted-foreground">この作品に影響を与えた本・フレーズ・知識・創作メモと、何のための資料かを記録します。</p>
+      <p className="text-sm text-muted-foreground">この作品に影響を与えた本・フレーズ・知識・創作知識・創作メモと、何のための資料かを記録します。</p>
       <nav className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0" aria-label="資料の種類">
         <ChipLink href={base} active={!kind}>
           すべて {refs.items.length}

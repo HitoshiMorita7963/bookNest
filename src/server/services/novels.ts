@@ -20,7 +20,7 @@ import {
   type SceneInput,
   type WorldInput,
 } from "@/lib/validators";
-import { describeSource, describeTarget, linkSourceInclude, linkTargetInclude } from "./creative";
+import { attachCk, describeSource, describeTarget, linkSourceInclude, linkTargetInclude } from "./creative";
 import { quoted } from "@/lib/quote-marks";
 
 /* ---------------- 作品 ---------------- */
@@ -129,7 +129,7 @@ export async function deleteCharacter(db: Db, id: string) {
 }
 
 export async function getCharacter(db: Db, id: string) {
-  return db.character.findUnique({
+  const c = await db.character.findUnique({
     where: { id },
     include: {
       relationsFrom: { include: { to: { select: { id: true, name: true } } } },
@@ -137,6 +137,7 @@ export async function getCharacter(db: Db, id: string) {
       links: { include: linkSourceInclude, orderBy: { createdAt: "desc" } },
     },
   });
+  return c && { ...c, links: await attachCk(db, c.links) };
 }
 
 export async function createRelationship(db: Db, projectId: string, input: unknown) {
@@ -196,13 +197,14 @@ export async function deleteChapter(db: Db, id: string) {
 }
 
 export async function getChapter(db: Db, id: string) {
-  return db.chapter.findUnique({
+  const ch = await db.chapter.findUnique({
     where: { id },
     include: {
       scenes: { orderBy: [{ position: "asc" }, { createdAt: "asc" }], include: { _count: { select: { links: true } } } },
       links: { include: linkSourceInclude, orderBy: { createdAt: "desc" } },
     },
   });
+  return ch && { ...ch, links: await attachCk(db, ch.links) };
 }
 
 export async function createScene(db: Db, chapterId: string, input: SceneInput) {
@@ -219,20 +221,23 @@ export async function deleteScene(db: Db, id: string) {
   await db.scene.delete({ where: { id } });
 }
 export async function getScene(db: Db, id: string) {
-  return db.scene.findUnique({
+  const s = await db.scene.findUnique({
     where: { id },
     include: { chapter: { select: { id: true, title: true, projectId: true } }, links: { include: linkSourceInclude, orderBy: { createdAt: "desc" } } },
   });
+  return s && { ...s, links: await attachCk(db, s.links) };
 }
 
 /* ---------------- この作品に影響を与えたもの（参考資料） ---------------- */
 
 export async function projectReferences(db: Db, projectId: string) {
-  const links = await db.creativeLink.findMany({
+  const rows = await db.creativeLink.findMany({
     where: { projectId },
     include: { ...linkSourceInclude, ...linkTargetInclude, note: { select: { id: true, title: true, category: true, materials: { include: linkSourceInclude } } } },
     orderBy: { createdAt: "desc" },
   });
+  const links = await attachCk(db, rows);
+  for (const l of links) if (l.note) l.note.materials = await attachCk(db, l.note.materials);
   const items = links.map((l) => ({ id: l.id, purpose: l.purpose, createdAt: l.createdAt, source: describeSource(l), target: describeTarget(l) }));
   // 創作メモを経由した資料（メモの元になった本・フレーズ・知識）も影響として数える
   const viaNotes = links.flatMap((l) => (l.note?.materials ?? []).map((m) => ({ id: m.id, via: l.note!.title, source: describeSource(m) })));
@@ -243,7 +248,7 @@ export async function projectReferences(db: Db, projectId: string) {
   return {
     items,
     viaNotes,
-    counts: { book: bookHrefs.size, quote: distinct("quote"), knowledge: distinct("knowledge"), note: distinct("note") },
+    counts: { book: bookHrefs.size, quote: distinct("quote"), knowledge: distinct("knowledge"), ck: distinct("ck"), note: distinct("note") },
   };
 }
 

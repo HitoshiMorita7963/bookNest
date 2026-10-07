@@ -5,7 +5,7 @@
  */
 import type { Db } from "@/lib/db";
 import { CREATIVE_CATEGORY_LABEL, NOTE_STATUS_LABEL, type CreativeCategory, type NoteStatus } from "@/lib/constants";
-import { describeSource, describeTarget, linkSourceInclude, linkTargetInclude } from "./creative";
+import { attachCk, describeSource, describeTarget, linkSourceInclude, linkTargetInclude } from "./creative";
 
 export type SheetKind = "quote" | "knowledge" | "note";
 
@@ -94,6 +94,8 @@ export async function noteRows(db: Db, ids?: string[]): Promise<Cell[][]> {
     },
     orderBy: { createdAt: "asc" },
   });
+  // 創作知識の元の名前を付ける（attachCk は各行にそのまま ck を書き足す）
+  await attachCk(db, rows.flatMap((n) => n.materials));
   return rows.map((n) => {
     const used = n.usedIn.map((l) => {
       const t = describeTarget(l);
