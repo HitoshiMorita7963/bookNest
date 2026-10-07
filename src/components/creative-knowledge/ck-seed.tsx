@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, PackagePlus } from "lucide-react";
@@ -12,15 +12,29 @@ import type { CkSeedStatus } from "@/server/services/creative-knowledge-seed";
 export function CkSeedCard({ status }: { status: CkSeedStatus }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [done, setDone] = useState(0);
   if (!status.missing && !status.outdated) return null;
+  const todo = status.missing + status.outdated;
   const firstTime = status.missing === status.total;
 
   function load() {
     start(async () => {
-      const res = await syncCkSeedsAction();
-      if (!res.ok) return void toast.error(res.error);
-      const { created, updated } = res.data;
-      toast.success([created ? `${created}件を追加` : "", updated ? `${updated}件を更新` : ""].filter(Boolean).join("・") + "しました");
+      // 本番の処理時間の上限に収めるため、少しずつ読み込む（残りがなくなるまで繰り返す）
+      let created = 0;
+      let updated = 0;
+      setDone(0);
+      for (let i = 0; i < 50; i++) {
+        const res = await syncCkSeedsAction();
+        if (!res.ok) {
+          toast.error(res.error);
+          break;
+        }
+        created += res.data.created;
+        updated += res.data.updated;
+        setDone(created + updated);
+        if (res.data.remaining === 0) break;
+      }
+      if (created || updated) toast.success([created ? `${created}件を追加` : "", updated ? `${updated}件を更新` : ""].filter(Boolean).join("・") + "しました");
       router.refresh();
     });
   }
@@ -37,7 +51,7 @@ export function CkSeedCard({ status }: { status: CkSeedStatus }) {
         </p>
       </div>
       <Button onClick={load} disabled={pending} className="shrink-0">
-        {pending ? <Loader2 className="animate-spin" /> : <PackagePlus />} {firstTime ? "追加する" : "追加・更新する"}
+        {pending ? <Loader2 className="animate-spin" /> : <PackagePlus />} {pending ? `読み込み中… ${done}/${todo}` : firstTime ? "追加する" : "追加・更新する"}
       </Button>
     </section>
   );

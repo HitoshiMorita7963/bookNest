@@ -95,5 +95,5 @@ export async function setCkMyNoteAction(id: string, note: string) {
 /* ---------------- 初期データ（サンプル） ---------------- */
 
 export async function syncCkSeedsAction() {
-  return run(() => seed.syncCkSeeds(prisma));
+  return run(() => seed.syncCkSeeds(prisma, { limit: seed.CK_SEED_BATCH }));
 }

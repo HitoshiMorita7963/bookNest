@@ -7,7 +7,7 @@
 import type { Db } from "@/lib/db";
 import type { CreativeKnowledgeInput } from "@/lib/validators";
 import { CK_SEEDS, type CkSeed } from "@/server/data/creative-knowledge-seed";
-import { addCkRelation, createCreativeKnowledge, updateCreativeKnowledge } from "./creative-knowledge";
+import { createCreativeKnowledge, updateCreativeKnowledge } from "./creative-knowledge";
 
 function toInput(s: CkSeed): CreativeKnowledgeInput {
   const join = (xs?: string[]) => (xs ?? []).join("\n");
@@ -70,36 +70,60 @@ export async function ckSeedStatus(db: Db): Promise<CkSeedStatus> {
   return { total: CK_SEEDS.length, missing, outdated, edited };
 }
 
-/** サンプルを読み込む（追加・更新）。関係は、両方の知識があるときだけつなげる */
-export async function syncCkSeeds(db: Db) {
+/** 1回の呼び出しで追加・更新する件数（本番の処理時間の上限に収めるため、画面から続けて呼ぶ） */
+export const CK_SEED_BATCH = 40;
+
+/**
+ * サンプルを読み込む（追加・更新）。1回に limit 件まで処理し、残りの件数を返す。
+ * すべて読み込み終わった回に、知識同士の関係をまとめてつなげる（両方の知識があるときだけ）。
+ */
+export async function syncCkSeeds(db: Db, opts: { limit?: number } = {}) {
+  const limit = opts.limit ?? Infinity;
   const existing = new Map((await loadExisting(db)).map((k) => [k.slug!, k]));
-  const idBySlug = new Map<string, string>();
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let remaining = 0;
   for (const s of CK_SEEDS) {
     const k = existing.get(s.slug);
-    if (!k) {
-      idBySlug.set(s.slug, (await createCreativeKnowledge(db, toInput(s), { slug: s.slug, origin: "seed" })).id);
-      created++;
+    if (k?.userEdited) {
+      skipped++;
       continue;
     }
-    idBySlug.set(s.slug, k.id);
-    if (k.userEdited) skipped++;
-    else if (!isSame(k, s)) {
+    if (k && isSame(k, s)) continue;
+    if (created + updated >= limit) {
+      remaining++;
+      continue;
+    }
+    if (!k) {
+      await createCreativeKnowledge(db, toInput(s), { slug: s.slug, origin: "seed" });
+      created++;
+    } else {
       await updateCreativeKnowledge(db, k.id, toInput(s), { bySeed: true });
       updated++;
     }
   }
+  const linked = remaining === 0 ? await linkSeedRelations(db) : 0;
+  return { created, updated, skipped, remaining, linked };
+}
+
+/** サンプル同士の関係で、まだないものをまとめて作る（逆向きの同じ種類の関係や、自分で付けた関係はそのまま） */
+async function linkSeedRelations(db: Db) {
+  const rows = await db.creativeKnowledge.findMany({ where: { slug: { in: CK_SEEDS.map((s) => s.slug) } }, select: { id: true, slug: true } });
+  const idBySlug = new Map(rows.map((r) => [r.slug!, r.id]));
+  const ids = [...idBySlug.values()];
+  const current = await db.creativeKnowledgeRelation.findMany({ where: { fromId: { in: ids }, toId: { in: ids } }, select: { fromId: true, toId: true, type: true } });
+  const has = new Set(current.flatMap((r) => [`${r.fromId}|${r.toId}|${r.type}`, `${r.toId}|${r.fromId}|${r.type}`]));
+  const data: { fromId: string; toId: string; type: string }[] = [];
   for (const s of CK_SEEDS) {
     for (const [type, to] of s.relations ?? []) {
       const fromId = idBySlug.get(s.slug);
       const toId = idBySlug.get(to);
-      if (!fromId || !toId) continue;
-      // 既にある関係（逆向き・自分で書いたメモを含む）は addCkRelation 側でそのまま残る
-      const exists = await db.creativeKnowledgeRelation.count({ where: { OR: [{ fromId, toId, type }, { fromId: toId, toId: fromId, type }] } });
-      if (!exists) await addCkRelation(db, { fromId, toId, type });
+      if (!fromId || !toId || fromId === toId || has.has(`${fromId}|${toId}|${type}`)) continue;
+      has.add(`${fromId}|${toId}|${type}`).add(`${toId}|${fromId}|${type}`);
+      data.push({ fromId, toId, type });
     }
   }
-  return { created, updated, skipped };
+  if (data.length) await db.creativeKnowledgeRelation.createMany({ data });
+  return data.length;
 }
