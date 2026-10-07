@@ -250,6 +250,8 @@ async function localEditorAnswer(db: Db, projectId: string, question: string, ct
     if (ctx.includeNotes !== false) {
       await runCreativeTool(db, "search_creative", { query: k, scope: "all" }, projectId, refs, { books, quotes, knowledge });
     }
+    // 創作知識（一般的な創作の知識）も探す
+    await runCreativeTool(db, "search_creative_knowledge", { query: k }, projectId, refs, { books, quotes, knowledge });
   }
   if (keywords.length) lines.push(`\nキーワード：${keywords.map((k) => `「${k}」`).join(" ")}`);
   if (books.size) lines.push(`\n関連する本：\n${[...books.values()].slice(0, 10).map((t) => `- 『${t}』`).join("\n")}`);

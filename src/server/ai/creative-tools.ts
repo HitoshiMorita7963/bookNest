@@ -6,9 +6,10 @@ import "server-only";
 import type { Db } from "@/lib/db";
 import { CREATIVE_CATEGORY_LABEL, type CreativeCategory } from "@/lib/constants";
 import { findSimilarNotes, buildNoteWhere } from "@/server/services/creative";
+import { projectCkContext, searchCkForAi } from "@/server/services/creative-knowledge-ai";
 import type { AiToolDef } from "./provider";
 
-export type CreativeRefKind = "note" | "project" | "character" | "world" | "plot" | "chapter" | "scene";
+export type CreativeRefKind = "note" | "ck" | "project" | "character" | "world" | "plot" | "chapter" | "scene";
 export interface CreativeRef {
   kind: CreativeRefKind;
   id: string;
@@ -16,6 +17,14 @@ export interface CreativeRef {
   href: string;
 }
 export type CreativeRefs = Map<string, CreativeRef>; // key: `${kind}:${id}`
+
+/** CreativeLink.ckId は外部キーがないので、タイトルは別に引く */
+async function ckTitleMap(db: Db, links: { ckId: string | null }[]) {
+  const ids = links.map((l) => l.ckId).filter((x): x is string => !!x);
+  if (!ids.length) return new Map<string, string>();
+  const rows = await db.creativeKnowledge.findMany({ where: { id: { in: ids } }, select: { id: true, title: true } });
+  return new Map(rows.map((r) => [r.id, r.title]));
+}
 
 export const remember = (refs: CreativeRefs, r: CreativeRef) => refs.set(`${r.kind}:${r.id}`, r);
 const clip = (s: string | null | undefined, n = 300) => (s ? (s.length > n ? s.slice(0, n) + "…" : s) : null);
@@ -48,8 +57,14 @@ export const CREATIVE_TOOLS: AiToolDef[] = [
   },
   {
     name: "list_project_references",
-    description: "この作品に関連付けられた参考資料（本・フレーズ・知識・創作メモ）と、その用途・紐付け先を返す。",
+    description: "この作品に関連付けられた参考資料（本・フレーズ・知識・創作知識・創作メモ）と、その用途・紐付け先を返す。創作知識は定義・効果・使い方と、ユーザー自身のメモ（myNote）を分けて返す。",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "search_creative_knowledge",
+    description:
+      "創作知識（物語の型・人物の型・感情・演出・ジャンル・トロープなどの一般的な創作の知識）をキーワードで検索する。定義・効果・パターン・使い方・注意点・関連知識と、ユーザー自身のメモ（myNote）を分けて返す。myNote はユーザーの考えなので一般論と混同しないこと。",
+    input_schema: { type: "object", properties: { query: { type: "string" } }, required: ["query"], additionalProperties: false },
   },
   {
     name: "find_similar_notes",
@@ -125,6 +140,7 @@ export async function runCreativeTool(db: Db, name: string, rawInput: unknown, p
         },
       });
       if (!c) return JSON.stringify({ error: "人物が見つかりません" });
+      const ckTitles = await ckTitleMap(db, c.links);
       remember(refs, { kind: "character", id: c.id, label: c.name, href: `${p}/characters/${c.id}` });
       for (const l of c.links) {
         if (l.book) sources.books.set(l.book.id, l.book.title);
@@ -145,7 +161,7 @@ export async function runCreativeTool(db: Db, name: string, rawInput: unknown, p
         speechStyle: clip(c.speechStyle),
         notes: clip(c.notes, 600),
         relationships: [...c.relationsFrom.map((r) => `→ ${r.label} → ${r.to.name}`), ...c.relationsTo.map((r) => `${r.from.name} → ${r.label} →（この人物）`)],
-        references: c.links.map((l) => ({ purpose: l.purpose, book: l.book?.title, quote: clip(l.quote?.text, 120), knowledge: l.knowledge?.title, note: l.note?.title })),
+        references: c.links.map((l) => ({ purpose: l.purpose, book: l.book?.title, quote: clip(l.quote?.text, 120), knowledge: l.knowledge?.title, creativeKnowledge: l.ckId ? ckTitles.get(l.ckId) : undefined, note: l.note?.title })),
       });
     }
     case "get_chapter": {
@@ -154,6 +170,7 @@ export async function runCreativeTool(db: Db, name: string, rawInput: unknown, p
         include: { scenes: { orderBy: { position: "asc" } }, links: { include: { book: { select: { id: true, title: true } }, quote: { select: { id: true, text: true } }, knowledge: { select: { id: true, title: true } }, note: { select: { id: true, title: true } } } } },
       });
       if (!ch) return JSON.stringify({ error: "章が見つかりません" });
+      const ckTitles = await ckTitleMap(db, ch.links);
       remember(refs, { kind: "chapter", id: ch.id, label: ch.title, href: `${p}/chapters/${ch.id}` });
       ch.scenes.forEach((s) => remember(refs, { kind: "scene", id: s.id, label: s.title, href: `${p}/scenes/${s.id}` }));
       for (const l of ch.links) {
@@ -166,7 +183,7 @@ export async function runCreativeTool(db: Db, name: string, rawInput: unknown, p
         title: ch.title,
         summary: clip(ch.summary, 600),
         scenes: ch.scenes.map((s) => ({ id: s.id, title: s.title, status: s.status, summary: clip(s.summary, 300), draftOpening: clip(s.content, 300) })),
-        references: ch.links.map((l) => ({ purpose: l.purpose, book: l.book?.title, quote: clip(l.quote?.text, 120), knowledge: l.knowledge?.title, note: l.note?.title })),
+        references: ch.links.map((l) => ({ purpose: l.purpose, book: l.book?.title, quote: clip(l.quote?.text, 120), knowledge: l.knowledge?.title, creativeKnowledge: l.ckId ? ckTitles.get(l.ckId) : undefined, note: l.note?.title })),
       });
     }
     case "list_project_references": {
@@ -189,7 +206,10 @@ export async function runCreativeTool(db: Db, name: string, rawInput: unknown, p
         if (l.knowledge) sources.knowledge.set(l.knowledge.id, l.knowledge.title);
         if (l.note) remember(refs, { kind: "note", id: l.note.id, label: l.note.title, href: `/creative/notes/${l.note.id}` });
       }
+      const creativeKnowledge = await projectCkContext(db, projectId);
+      creativeKnowledge.forEach((k) => remember(refs, { kind: "ck", id: k.id, label: k.title, href: `/creative/knowledge/${k.id}` }));
       return JSON.stringify({
+        creativeKnowledge,
         references: links.map((l) => ({
           purpose: l.purpose,
           usedFor: l.character ? `人物：${l.character.name}` : l.scene ? `シーン：${l.scene.title}` : l.chapter ? `章：${l.chapter.title}` : "作品全体",
@@ -199,6 +219,11 @@ export async function runCreativeTool(db: Db, name: string, rawInput: unknown, p
           note: l.note ? { id: l.note.id, title: l.note.title, content: clip(l.note.content, 200) } : undefined,
         })),
       });
+    }
+    case "search_creative_knowledge": {
+      const found = await searchCkForAi(db, str("query"), { projectId });
+      found.forEach((k) => remember(refs, { kind: "ck", id: k.id, label: k.title, href: `/creative/knowledge/${k.id}` }));
+      return JSON.stringify({ creativeKnowledge: found });
     }
     case "find_similar_notes": {
       const notes = await findSimilarNotes(db, str("text"), { take: 8 });

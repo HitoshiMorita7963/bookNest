@@ -11,7 +11,7 @@ import { LINK_TARGET_LABEL, type LinkSourceKind } from "@/lib/constants";
 
 const ICON: Record<string, string> = { project: "✍️", character: "👤", world: "🌍", plot: "📋", chapter: "📖", scene: "🎬", note: "💡" };
 
-/** 本・フレーズ・知識の詳細に表示する「創作への利用」（逆引き） */
+/** 本・フレーズ・知識・創作知識の詳細に表示する「創作への利用」（逆引き） */
 export async function CreativeUsageSection({
   source,
   defaultTitle,
@@ -23,12 +23,21 @@ export async function CreativeUsageSection({
 }) {
   const [usage, knowledgeUsage] = await Promise.all([
     creativeUsageOf(prisma, source),
-    ckUsageOfSource(prisma, { kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }),
+    // 創作知識そのものは「参考にした読書」の元にならない
+    source.kind === "ck" ? [] : ckUsageOfSource(prisma, { kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }),
   ]);
-  const heading = source.kind === "book" ? "この本から生まれた創作" : source.kind === "quote" ? "このフレーズを使っている創作" : "この知識を使っている創作";
+  const heading =
+    source.kind === "book"
+      ? "この本から生まれた創作"
+      : source.kind === "quote"
+        ? "このフレーズを使っている創作"
+        : source.kind === "ck"
+          ? "この創作知識を使っている作品・創作メモ"
+          : "この知識を使っている創作";
+  const title = source.kind === "ck" ? "使用している作品" : "創作への利用";
   return (
-    <section aria-label="創作への利用">
-      <SectionTitle action={<UseInCreativeButton source={source} defaultTitle={defaultTitle} defaultContent={defaultContent} />}>✍️ 創作への利用</SectionTitle>
+    <section aria-label={title}>
+      <SectionTitle action={<UseInCreativeButton source={source} defaultTitle={defaultTitle} defaultContent={defaultContent} />}>✍️ {title}</SectionTitle>
       {knowledgeUsage.length ? (
         <div className="mb-3 space-y-1.5">
           <p className="text-xs text-muted-foreground">{source.kind === "book" ? "この本（フレーズ・読書メモ・感想を含む）" : "これ"}を参考にしている創作知識</p>
@@ -86,7 +95,11 @@ export async function CreativeUsageSection({
           ) : null}
         </div>
       ) : knowledgeUsage.length ? null : (
-        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">「創作に使う」から、創作メモ・創作知識を作ったり、小説の人物・シーンに関連付けたりできます。</p>
+        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+          {source.kind === "ck"
+            ? "「創作に使う」から、この知識を作品・人物・章・シーンに関連付けたり、創作メモを作ったりできます。"
+            : "「創作に使う」から、創作メモ・創作知識を作ったり、小説の人物・シーンに関連付けたりできます。"}
+        </p>
       )}
     </section>
   );

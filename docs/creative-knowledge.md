@@ -49,6 +49,20 @@
 
 言い換えで見つけやすくするには、知識の「別名・言い換え」に書いておく。将来 Embedding（ベクトル検索）に置き換える場合も、`searchCreativeKnowledge` の戻り値の形を保てば画面と AI 側は変更不要。
 
+## 作品との連携（`CreativeLink.ckId`）
+
+- 紐付けの「元」の種類に `ck`（創作知識）を追加した（`LINK_SOURCE_KINDS`）。作品全体・人物・世界観・プロット・章・シーン・創作メモにつなげられる
+- つなぐ場所：創作知識の詳細の「創作に使う」、作品の参考資料・人物・章・シーンの「資料を追加」（創作知識タブ）
+- 逆引き：創作知識の詳細に「使用している作品」
+- `ckId` はリレーションがないので、表示用のタイトル・カテゴリは `attachCk()`（`services/creative.ts`）で別に読み込んで付ける
+
+## AI への文脈（`src/server/services/creative-knowledge-ai.ts`）
+
+- `ckAiContext(ids, { projectId })`：定義・効果・パターン・流れ・使い方・注意点・関連知識を短く切りそろえ、自分のメモ（`myNote`）は別の項目で渡す。作品を指定すると、その作品で使っている場所も付ける
+- `searchCkForAi(query)`：検索で見つかった創作知識の文脈
+- `projectCkContext(projectId)`：作品に関連付けられた創作知識の文脈
+- AI編集者のツール `search_creative_knowledge` と `list_project_references` から使う。AI が使えない検索モードでも、キーワードで創作知識を探す
+
 ## 本番 DB への反映（migration: `20261007000000_creative_knowledge`）
 
 この migration は「`CreativeLink` への列の追加」と「新しいテーブルの作成」だけで、既存のテーブルを作り直したりデータを書き換えたりしない（使い捨て DB で、既存データが変わらないこと・取り消しできることを確認済み）。

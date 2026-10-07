@@ -9,9 +9,10 @@ import { DeleteItemButton, SceneSheetButton } from "@/components/creative/projec
 import { SceneStatusBadge } from "@/components/creative/bits";
 import { LinkList } from "@/components/creative/note-client";
 import { AddReferenceButton } from "@/components/creative/reference-picker";
+import { LINK_SOURCE_ICON } from "@/lib/constants";
 
 export const metadata = { title: "シーン" };
-const ICON = { book: "📚", quote: "💬", knowledge: "🧠", note: "💡" } as const;
+const ICON = LINK_SOURCE_ICON;
 
 export default async function ScenePage({ params }: { params: Promise<{ id: string; sid: string }> }) {
   const { id, sid } = await params;

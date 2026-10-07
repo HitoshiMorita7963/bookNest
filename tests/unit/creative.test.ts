@@ -122,7 +122,7 @@ describe("Reading → creative links", () => {
 
     // 作品に影響を与えたもの（メモ経由の本・フレーズの出典の本も数える）
     const refs = await projectReferences(db, p.id);
-    expect(refs.counts).toEqual({ book: 1, quote: 1, knowledge: 1, note: 1 });
+    expect(refs.counts).toEqual({ book: 1, quote: 1, knowledge: 1, ck: 0, note: 1 });
 
     // 創作タイムライン
     const tl = await projectTimeline(db, p.id);

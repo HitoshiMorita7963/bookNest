@@ -7,12 +7,12 @@ import { PageHeader } from "@/components/layout/page-header";
 import { SectionTitle, TagChip } from "@/components/books/bits";
 import { CategoryBadge, NoteStatusBadge } from "@/components/creative/bits";
 import { AddToProjectButton, LinkList, NoteMenu, NoteStatusSwitcher } from "@/components/creative/note-client";
-import { LINK_TARGET_LABEL } from "@/lib/constants";
+import { LINK_TARGET_LABEL, LINK_SOURCE_ICON } from "@/lib/constants";
 import { ReadMore } from "@/components/ui/read-more";
 
 export const metadata = { title: "創作メモ" };
 
-const SOURCE_ICON = { book: "📚", quote: "💬", knowledge: "🧠", note: "💡" } as const;
+const SOURCE_ICON = LINK_SOURCE_ICON;
 const TARGET_ICON = { project: "✍️", character: "👤", world: "🌍", plot: "📋", chapter: "📖", scene: "🎬", note: "💡" } as const;
 
 export default async function CreativeNotePage({ params }: { params: Promise<{ id: string }> }) {

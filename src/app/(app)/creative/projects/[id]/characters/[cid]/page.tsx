@@ -8,8 +8,9 @@ import { SectionTitle } from "@/components/books/bits";
 import { CharacterSheetButton, DeleteItemButton } from "@/components/creative/project-forms";
 import { LinkList } from "@/components/creative/note-client";
 import { AddReferenceButton } from "@/components/creative/reference-picker";
+import { LINK_SOURCE_ICON } from "@/lib/constants";
 
-const ICON = { book: "📚", quote: "💬", knowledge: "🧠", note: "💡" } as const;
+const ICON = LINK_SOURCE_ICON;
 
 export default async function CharacterPage({ params }: { params: Promise<{ id: string; cid: string }> }) {
   const { id, cid } = await params;

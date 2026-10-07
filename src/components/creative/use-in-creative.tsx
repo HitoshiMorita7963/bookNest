@@ -70,7 +70,8 @@ function UseInCreativeBody({
   onDone: () => void;
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState("note");
+  // 創作知識は「作品に関連付け」が主な使い方
+  const [mode, setMode] = useState(source.kind === "ck" ? "project" : "note");
   const [category, setCategory] = useState<CreativeCategory>("OTHER");
   const [step, setStep] = useState<"category" | "form">(source.kind === "quote" ? "category" : "form");
   const [alsoProject, setAlsoProject] = useState(false);
@@ -90,7 +91,7 @@ function UseInCreativeBody({
 
   return (
     <Tabs value={mode} onValueChange={setMode}>
-      <TabsList className="grid grid-cols-4">
+      <TabsList className={source.kind === "ck" ? "grid grid-cols-3" : "grid grid-cols-4"}>
         <TabsTrigger value="note" className="px-1 text-xs sm:text-sm">
           <PenLine className="size-4" /> メモを作る
         </TabsTrigger>
@@ -100,9 +101,11 @@ function UseInCreativeBody({
         <TabsTrigger value="existing" className="px-1 text-xs sm:text-sm">
           <Search className="size-4" /> 既存のメモ
         </TabsTrigger>
-        <TabsTrigger value="ck" className="px-1 text-xs sm:text-sm">
-          <Brain className="size-4" /> 創作知識
-        </TabsTrigger>
+        {source.kind !== "ck" ? (
+          <TabsTrigger value="ck" className="px-1 text-xs sm:text-sm">
+            <Brain className="size-4" /> 創作知識
+          </TabsTrigger>
+        ) : null}
       </TabsList>
 
       <TabsContent value="note" className="space-y-4">
@@ -153,9 +156,11 @@ function UseInCreativeBody({
         <ExistingNotePicker source={source} onDone={onDone} />
       </TabsContent>
 
-      <TabsContent value="ck">
-        <SaveToCkBody source={{ kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }} onDone={onDone} />
-      </TabsContent>
+      {source.kind !== "ck" ? (
+        <TabsContent value="ck">
+          <SaveToCkBody source={{ kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }} onDone={onDone} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }

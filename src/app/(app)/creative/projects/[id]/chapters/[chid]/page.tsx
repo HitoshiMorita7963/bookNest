@@ -9,8 +9,9 @@ import { ChapterSheetButton, DeleteItemButton, MoveButtons, SceneSheetButton } f
 import { SceneStatusBadge } from "@/components/creative/bits";
 import { LinkList } from "@/components/creative/note-client";
 import { AddReferenceButton } from "@/components/creative/reference-picker";
+import { LINK_SOURCE_ICON } from "@/lib/constants";
 
-const ICON = { book: "📚", quote: "💬", knowledge: "🧠", note: "💡" } as const;
+const ICON = LINK_SOURCE_ICON;
 
 export default async function ChapterPage({ params }: { params: Promise<{ id: string; chid: string }> }) {
   const { id, chid } = await params;
