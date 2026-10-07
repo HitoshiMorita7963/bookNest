@@ -48,7 +48,7 @@ model Book {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  series        Series?           @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  series        Series?                      @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   authors       BookAuthor[]
   tags          BookTag[]
   records       ReadingRecord[]
@@ -57,9 +57,11 @@ model Book {
   quotes        Quote[]
   knowledge     BookKnowledge[]
   paths         ReadingPathBook[]
-  relatedTo     BookRelation[]    @relation("fromBook")
-  relatedBy     BookRelation[]    @relation("toBook")
+  relatedTo     BookRelation[]               @relation("fromBook")
+  relatedBy     BookRelation[]               @relation("toBook")
   creativeLinks CreativeLink[]
+  ckReferences  CreativeKnowledgeReference[]
+  ckSources     CreativeKnowledgeSource[]
 
   @@index([status])
   @@index([title])
@@ -105,13 +107,14 @@ model Series {
 }
 
 model Tag {
-  id            String            @id @default(cuid())
-  name          String            @unique
-  createdAt     DateTime          @default(now())
-  books         BookTag[]
-  quotes        QuoteTag[]
-  knowledge     KnowledgeTag[]
-  creativeNotes CreativeNoteTag[]
+  id                String                 @id @default(cuid())
+  name              String                 @unique
+  createdAt         DateTime               @default(now())
+  books             BookTag[]
+  quotes            QuoteTag[]
+  knowledge         KnowledgeTag[]
+  creativeNotes     CreativeNoteTag[]
+  creativeKnowledge CreativeKnowledgeTag[]
 }
 
 model BookTag {
@@ -126,22 +129,23 @@ model BookTag {
 
 // 本ごとの読書記録（再読に対応するため Book とは別）
 model ReadingRecord {
-  id         String           @id @default(cuid())
-  bookId     String
+  id           String                       @id @default(cuid())
+  bookId       String
   // READING | COMPLETED | PAUSED | DROPPED
-  status     String           @default("READING")
-  startedAt  DateTime?
-  finishedAt DateTime?
-  rating     Int?
-  review     String?
-  summary    String?
-  learned    String?
-  memorable  String?
-  questions  String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  book       Book             @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  sessions   ReadingSession[]
+  status       String                       @default("READING")
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  rating       Int?
+  review       String?
+  summary      String?
+  learned      String?
+  memorable    String?
+  questions    String?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+  book         Book                         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  sessions     ReadingSession[]
+  ckReferences CreativeKnowledgeReference[]
 
   @@index([bookId])
   @@index([finishedAt])
@@ -150,18 +154,19 @@ model ReadingRecord {
 
 // 日々の読書活動（進捗更新・メモ）。読書カレンダーの元データ。
 model ReadingSession {
-  id        String         @id @default(cuid())
-  bookId    String
-  recordId  String?
-  date      DateTime       @default(now())
-  startPage Int?
-  endPage   Int?
-  pagesRead Int            @default(0)
-  minutes   Int?
-  note      String?
-  createdAt DateTime       @default(now())
-  book      Book           @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  record    ReadingRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  id           String                       @id @default(cuid())
+  bookId       String
+  recordId     String?
+  date         DateTime                     @default(now())
+  startPage    Int?
+  endPage      Int?
+  pagesRead    Int                          @default(0)
+  minutes      Int?
+  note         String?
+  createdAt    DateTime                     @default(now())
+  book         Book                         @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  record       ReadingRecord?               @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  ckReferences CreativeKnowledgeReference[]
 
   @@index([date])
   @@index([bookId])
@@ -206,20 +211,21 @@ model ReadingGoal {
 
 // 本から保存した文章
 model Quote {
-  id            String           @id @default(cuid())
+  id            String                       @id @default(cuid())
   text          String
   originalImage String?
   bookId        String?
   pageNumber    String? // "142" / "142-143" / "序章" / "位置No.1234"
   note          String? // なぜ残したのか（自分のメモ）
-  isFavorite    Boolean          @default(false)
-  isSample      Boolean          @default(false)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  book          Book?            @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  isFavorite    Boolean                      @default(false)
+  isSample      Boolean                      @default(false)
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+  book          Book?                        @relation(fields: [bookId], references: [id], onDelete: SetNull)
   tags          QuoteTag[]
   knowledge     QuoteKnowledge[]
   creativeLinks CreativeLink[]
+  ckReferences  CreativeKnowledgeReference[]
 
   @@index([bookId])
   @@index([createdAt])
@@ -237,19 +243,20 @@ model QuoteTag {
 
 // 読書から得た知識・理解
 model KnowledgeNote {
-  id            String           @id @default(cuid())
+  id            String                       @id @default(cuid())
   title         String
-  content       String           @default("")
+  content       String                       @default("")
   category      String?
-  isSample      Boolean          @default(false)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  isSample      Boolean                      @default(false)
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
   tags          KnowledgeTag[]
   books         BookKnowledge[]
   quotes        QuoteKnowledge[]
-  linksFrom     KnowledgeLink[]  @relation("linkFrom")
-  linksTo       KnowledgeLink[]  @relation("linkTo")
+  linksFrom     KnowledgeLink[]              @relation("linkFrom")
+  linksTo       KnowledgeLink[]              @relation("linkTo")
   creativeLinks CreativeLink[]
+  ckReferences  CreativeKnowledgeReference[]
 
   @@index([title])
   @@index([category])
@@ -334,13 +341,13 @@ model ReadingPathBook {
 }
 
 model AIConversation {
-  id             String        @id @default(cuid())
-  title          String        @default("新しい会話")
+  id        String      @id @default(cuid())
+  title     String      @default("新しい会話")
   // null = AI司書 / 値あり = その作品のAI編集者（既存データを作り直さないよう外部キーは張らない。作品削除時はサービス側で削除）
-  projectId      String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  messages       AIMessage[]
+  projectId String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AIMessage[]
 
   @@index([projectId])
 }
@@ -407,12 +414,12 @@ model NovelProject {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  characters      Character[]
-  relationships   CharacterRelationship[]
-  worldSettings   WorldSetting[]
-  plots           Plot[]
-  chapters        Chapter[]
-  links           CreativeLink[]          @relation("linkProject")
+  characters    Character[]
+  relationships CharacterRelationship[]
+  worldSettings WorldSetting[]
+  plots         Plot[]
+  chapters      Chapter[]
+  links         CreativeLink[]          @relation("linkProject")
 
   @@index([status])
   @@index([updatedAt])
@@ -544,6 +551,8 @@ model CreativeLink {
   quoteId      String?
   knowledgeId  String?
   noteId       String?
+  // 創作知識（外部キーなし：既存テーブルを作り直す migration を避けるため。削除時はサービスで後片付け）
+  ckId         String?
   // 先
   projectId    String?
   characterId  String?
@@ -578,4 +587,135 @@ model CreativeLink {
   @@index([chapterId])
   @@index([sceneId])
   @@index([targetNoteId])
+  @@index([ckId])
+}
+
+/**
+ * 創作知識（Creative Knowledge Base）
+ * 一般的な創作の知識（例：「敵から味方へ」）。読書の具体例（Reference）と、自分の創作（CreativeLink.ckId 経由）につながる。
+ * effects / patterns / flow / usage / cautions / aliases は「1行に1項目」のテキスト。
+ */
+model CreativeKnowledge {
+  id          String   @id @default(cuid())
+  title       String
+  /// サンプルデータの識別子（重複防止・更新用）。ユーザーが作ったものは null
+  slug        String?  @unique
+  summary     String   @default("")
+  definition  String   @default("")
+  effects     String   @default("")
+  patterns    String   @default("")
+  /// 感情・展開の流れ（1行に1段階）
+  flow        String   @default("")
+  usage       String   @default("")
+  cautions    String   @default("")
+  /// 別名・言い換え（検索用。例：敵が仲間になる）
+  aliases     String   @default("")
+  // STRUCTURE | PLOT | CHARACTER | EMOTION | SCENE | WORLD | GENRE | TROPE | MOTIF | EXPRESSION
+  category    String
+  subCategory String?
+  /// 自分のメモ（一般的な知識とは分けて保存）
+  myNote      String   @default("")
+  isFavorite  Boolean  @default(false)
+  /// seed（サンプル）| user（自分で作成）
+  origin      String   @default("user")
+  /// サンプルを自分で編集したか（サンプル更新時に上書きしない）
+  userEdited  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categories    CreativeKnowledgeCategory[]
+  tags          CreativeKnowledgeTag[]
+  relationsFrom CreativeKnowledgeRelation[]  @relation("ckRelationFrom")
+  relationsTo   CreativeKnowledgeRelation[]  @relation("ckRelationTo")
+  references    CreativeKnowledgeReference[]
+  sources       CreativeKnowledgeSource[]
+
+  @@index([category])
+  @@index([isFavorite])
+  @@index([updatedAt])
+}
+
+/// 2つ目以降のカテゴリ（主カテゴリは CreativeKnowledge.category）
+model CreativeKnowledgeCategory {
+  knowledgeId String
+  category    String
+  knowledge   CreativeKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@id([knowledgeId, category])
+  @@index([category])
+}
+
+model CreativeKnowledgeTag {
+  knowledgeId String
+  tagId       String
+  knowledge   CreativeKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  tag         Tag               @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([knowledgeId, tagId])
+  @@index([tagId])
+}
+
+/// 創作知識同士の関係。type: related | parent | child | similar | opposite | prerequisite | combination
+model CreativeKnowledgeRelation {
+  id        String            @id @default(cuid())
+  fromId    String
+  toId      String
+  type      String            @default("related")
+  note      String?
+  createdAt DateTime          @default(now())
+  from      CreativeKnowledge @relation("ckRelationFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to        CreativeKnowledge @relation("ckRelationTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, type])
+  @@index([toId])
+}
+
+/// 参考にした読書（Reference）。元はいずれか1つ：本・フレーズ・読書メモ（ReadingSession）・感想（ReadingRecord）・読書の知識。
+/// 本棚にない作品は workTitle に作品名を書く。
+model CreativeKnowledgeReference {
+  id              String   @id @default(cuid())
+  knowledgeId     String
+  bookId          String?
+  quoteId         String?
+  sessionId       String?
+  recordId        String?
+  knowledgeNoteId String?
+  workTitle       String?
+  /// 場所（例：第10章）
+  location        String?
+  /// 自分の気づき
+  comment         String   @default("")
+  createdAt       DateTime @default(now())
+
+  knowledge     CreativeKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  book          Book?             @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  quote         Quote?            @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  session       ReadingSession?   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  record        ReadingRecord?    @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  knowledgeNote KnowledgeNote?    @relation(fields: [knowledgeNoteId], references: [id], onDelete: Cascade)
+
+  @@index([knowledgeId])
+  @@index([bookId])
+  @@index([quoteId])
+  @@index([sessionId])
+  @@index([recordId])
+  @@index([knowledgeNoteId])
+}
+
+/// 出典・参考資料。kind: BOOK | WEB | PAPER | SELF（自分の考察）
+model CreativeKnowledgeSource {
+  id          String            @id @default(cuid())
+  knowledgeId String
+  kind        String            @default("BOOK")
+  title       String
+  url         String?
+  note        String?
+  /// 本棚の本を出典にする場合
+  bookId      String?
+  createdAt   DateTime          @default(now())
+  knowledge   CreativeKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  book        Book?             @relation(fields: [bookId], references: [id], onDelete: SetNull)
+
+  @@index([knowledgeId])
+  @@index([bookId])
 }
