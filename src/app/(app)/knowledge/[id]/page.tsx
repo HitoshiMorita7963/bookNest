@@ -12,8 +12,9 @@ import { KnowledgeMenu, UnlinkKnowledgeButton } from "@/components/knowledge/kno
 import { CreativeUsageSection } from "@/components/creative/usage-section";
 import { ReadMore } from "@/components/ui/read-more";
 import { LinkQuoteToKnowledgeButton, UnlinkQuoteKnowledgeButton } from "@/components/knowledge/quote-knowledge-links";
-import { UnlinkNewsButton } from "@/components/news/news-client";
+import { NewsInterestButton, UnlinkNewsButton } from "@/components/news/news-client";
 import { listSavedNews } from "@/server/services/news";
+import { getSettings } from "@/server/services/settings";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,7 +26,7 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
   const { id } = await params;
   const k = await getKnowledge(prisma, id);
   if (!k) notFound();
-  const news = await listSavedNews(prisma, { knowledgeId: k.id, take: 30 });
+  const [news, settings] = await Promise.all([listSavedNews(prisma, { knowledgeId: k.id, take: 30 }), getSettings(prisma)]);
   const links = [
     ...k.linksFrom.map((l) => ({ dir: "to" as const, note: l.to, label: l.label })),
     ...k.linksTo.map((l) => ({ dir: "from" as const, note: l.from, label: l.label })),
@@ -41,6 +42,7 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
             </Link>
           ) : null}
           <h2 className="text-2xl font-bold">🧠 {k.title}</h2>
+          <NewsInterestButton knowledgeId={k.id} initial={settings.newsInterestIds.includes(k.id)} />
           {k.tags.length ? (
             <div className="flex flex-wrap gap-1.5">
               {k.tags.map((t) => (

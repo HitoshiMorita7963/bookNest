@@ -4,12 +4,12 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, Check, Loader2, Plus, Search, X } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, Loader2, Newspaper, Plus, RefreshCw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { Sheet, SheetContent } from "@/components/ui/overlays";
 import { pickKnowledgeAction } from "@/server/actions/knowledge";
-import { createKnowledgeFromNewsAction, saveNewsAction, unlinkNewsKnowledgeAction, unsaveNewsAction } from "@/server/actions/news";
+import { createKnowledgeFromNewsAction, refreshNewsAction, saveNewsAction, setNewsInterestAction, unlinkNewsKnowledgeAction, unsaveNewsAction } from "@/server/actions/news";
 import { cn } from "@/lib/utils";
 
 interface KnowledgeOption {
@@ -195,5 +195,138 @@ export function UnlinkNewsButton({ newsId, knowledgeId }: { newsId: string; know
     >
       {pending ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
     </Button>
+  );
+}
+
+/** ホームの「最新のニュース」：すぐに集め直す */
+export function RefreshNewsButton() {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="ニュースを更新"
+      title="ニュースを更新"
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const res = await refreshNewsAction();
+          if (!res.ok) return void toast.error(res.error);
+          if (res.data.refreshed) toast.success("最新のニュースに更新しました");
+          else if (res.data.reason === "too-soon") toast.info("さっき更新したばかりです。数分たってからもう一度どうぞ");
+          else toast.error("ニュースを取得できませんでした。しばらくしてからお試しください");
+          router.refresh();
+        })
+      }
+    >
+      <RefreshCw className={cn("size-4", pending && "animate-spin")} />
+    </Button>
+  );
+}
+
+/** 知識の画面：この知識をニュースで追う（オン・オフ） */
+export function NewsInterestButton({ knowledgeId, initial }: { knowledgeId: string; initial: boolean }) {
+  const router = useRouter();
+  const [on, setOn] = useState(initial);
+  const [pending, start] = useTransition();
+  return (
+    <Button
+      variant={on ? "secondary" : "outline"}
+      size="sm"
+      aria-pressed={on}
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const next = !on;
+          setOn(next);
+          const res = await setNewsInterestAction(knowledgeId, next);
+          if (!res.ok) {
+            setOn(!next);
+            return void toast.error(res.error);
+          }
+          toast.success(next ? "この知識のニュースを中心に集めます（次の更新から）" : "ニュースで追うのをやめました");
+          router.refresh();
+        })
+      }
+    >
+      {pending ? <Loader2 className="animate-spin" /> : <Newspaper />} {on ? "ニュースで追っています" : "ニュースで追う"}
+    </Button>
+  );
+}
+
+/** ニュースのページ：ニュースで追う知識の一覧・追加・解除 */
+export function NewsInterestsManager({ items }: { items: KnowledgeOption[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<KnowledgeOption[] | null>(null);
+  const [pending, start] = useTransition();
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => pickKnowledgeAction(q).then((r) => setFound(r.map((k) => ({ id: k.id, title: k.title })))), 250);
+    return () => clearTimeout(t);
+  }, [q, open]);
+
+  const change = (k: KnowledgeOption, on: boolean) =>
+    start(async () => {
+      const res = await setNewsInterestAction(k.id, on);
+      if (!res.ok) return void toast.error(res.error);
+      toast.success(on ? `「${k.title}」のニュースを中心に集めます（次の更新から）` : `「${k.title}」を外しました`);
+      router.refresh();
+    });
+
+  return (
+    <div className="space-y-3">
+      {items.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label="ニュースで追う知識">
+          {items.map((k) => (
+            <li key={k.id} className="inline-flex h-8 items-center gap-0.5 rounded-full bg-primary/10 pl-3 text-sm text-primary">
+              <Link href={`/knowledge/${k.id}`}>🧠 {k.title}</Link>
+              <button type="button" aria-label={`「${k.title}」を外す`} disabled={pending} onClick={() => change(k, false)} className="flex size-8 items-center justify-center rounded-full hover:bg-primary/15">
+                <X className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">まだ選んでいません。選ぶと、その知識に関係するニュースを中心に集めます（主要ニュースは3件）。</p>
+      )}
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <Plus /> 知識を選ぶ
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen} repositionInputs={false}>
+        <SheetContent title="ニュースで追う知識を選ぶ" description="選んだ知識に関係するニュースを中心に集めます">
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="知識を検索" aria-label="知識を検索" className="pl-9" />
+            </div>
+            <ul className="max-h-72 divide-y overflow-y-auto rounded-xl border">
+              {found === null ? (
+                <li className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" /> 読み込み中…
+                </li>
+              ) : found.length ? (
+                found.map((k) => {
+                  const on = items.some((x) => x.id === k.id);
+                  return (
+                    <li key={k.id}>
+                      <button type="button" aria-pressed={on} disabled={pending} onClick={() => change(k, !on)} className={cn("flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm", on ? "bg-primary/10" : "hover:bg-accent/50")}>
+                        <span className="min-w-0 flex-1 truncate">🧠 {k.title}</span>
+                        {on ? <Check className="size-4 text-primary" /> : null}
+                      </button>
+                    </li>
+                  );
+                })
+              ) : (
+                <li className="p-3 text-sm text-muted-foreground">見つかりません</li>
+              )}
+            </ul>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

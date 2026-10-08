@@ -9,15 +9,20 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-test("本日のニュース：保存して知識につなげる → 保存したニュース・知識の関連ニュースに表示", async ({ page }) => {
+test("最新のニュース：保存して知識につなげる → 保存したニュース・知識の関連ニュースに表示", async ({ page }) => {
   test.skip(process.env.E2E_MODE === "cloud", "ローカル DB に直接書き込むテスト");
   const knowledge = await db.knowledgeNote.create({ data: { title: "E2Eデータセンター", content: "" } });
   await db.newsItem.create({
-    data: { title: "E2Eデータセンター誘致で地方に投資", url: `https://example.com/e2e-news-${Date.now()}`, source: "E2E新聞", feed: "knowledge", day: jstDay(), keyword: "E2Eデータセンター", publishedAt: new Date() },
+    data: { title: "E2Eデータセンター誘致で地方に投資", url: `https://example.com/e2e-news-${Date.now()}`, source: "E2E新聞", feed: "knowledge", day: jstDay(), keyword: "E2Eデータセンター", publishedAt: new Date(), fetchedAt: new Date() },
   });
 
   await page.goto("/");
-  const section = page.getByRole("region", { name: /本日のニュース/ }).or(page.locator("section", { has: page.getByRole("heading", { name: "📰 本日のニュース" }) }));
+  const section = page.locator("section", { has: page.getByRole("heading", { name: /📰 最新のニュース/ }) });
+  await expect(section.getByText("E2Eデータセンター誘致で地方に投資")).toBeVisible();
+  // 集めた時刻と更新ボタン（E2E では外部に取りに行かないので「取得できませんでした」になり、一覧はそのまま）
+  await expect(section.getByText(/\d+:\d{2} 時点/)).toBeVisible();
+  await section.getByRole("button", { name: "ニュースを更新" }).click();
+  await expect(page.getByText("ニュースを取得できませんでした。しばらくしてからお試しください")).toBeVisible();
   await expect(section.getByText("E2Eデータセンター誘致で地方に投資")).toBeVisible();
   // 見出しから見つけた候補の知識
   await expect(section.getByText("🧠 E2Eデータセンター？")).toBeVisible();
@@ -39,4 +44,29 @@ test("本日のニュース：保存して知識につなげる → 保存した
   // 知識の画面の関連ニュース
   await page.goto(`/knowledge/${knowledge.id}`);
   await expect(page.getByRole("region", { name: "関連ニュース" }).getByText("E2Eデータセンター誘致で地方に投資")).toBeVisible();
+});
+
+test("ニュースで追う知識：知識の画面から追う → ニュースのページに表示 → 外す", async ({ page }) => {
+  test.skip(process.env.E2E_MODE === "cloud", "ローカル DB に直接書き込むテスト");
+  const knowledge = await db.knowledgeNote.create({ data: { title: "E2E追う知識", content: "" } });
+  await page.goto(`/knowledge/${knowledge.id}`);
+  await page.getByRole("button", { name: "ニュースで追う" }).click();
+  await expect(page.getByText("この知識のニュースを中心に集めます（次の更新から）")).toBeVisible();
+  await expect(page.getByRole("button", { name: "ニュースで追っています" })).toHaveAttribute("aria-pressed", "true");
+
+  await page.goto("/news");
+  const list = page.getByRole("list", { name: "ニュースで追う知識" });
+  await expect(list.getByRole("link", { name: "🧠 E2E追う知識" })).toBeVisible();
+  await list.getByRole("button", { name: "「E2E追う知識」を外す" }).click();
+  await expect(page.getByText("「E2E追う知識」を外しました")).toBeVisible();
+  await expect(page.getByRole("link", { name: "🧠 E2E追う知識" })).toHaveCount(0);
+
+  // 「知識を選ぶ」から追加
+  await page.getByRole("button", { name: "知識を選ぶ" }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByLabel("知識を検索").fill("E2E追う");
+  await sheet.getByRole("button", { name: /E2E追う知識/ }).click();
+  await expect(page.getByText("「E2E追う知識」のニュースを中心に集めます（次の更新から）")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("list", { name: "ニュースで追う知識" }).getByRole("link", { name: "🧠 E2E追う知識" })).toBeVisible();
 });

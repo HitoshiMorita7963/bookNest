@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { SectionTitle } from "@/components/books/bits";
-import { ensureTodayNews, listTodayNews, type TodayNewsItem } from "@/server/services/news";
-import { NewsSaveButton } from "./news-client";
+import { listLatestNews, listNewsInterests, refreshNews, type LatestNewsItem } from "@/server/services/news";
+import { NewsSaveButton, RefreshNewsButton } from "./news-client";
 
 /** 日本時間の時刻（今日なら「9:30」、それ以外は「10/7」） */
 function when(d: Date | null, now = new Date()) {
@@ -14,9 +14,9 @@ function when(d: Date | null, now = new Date()) {
   return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10) ? `${a.getUTCHours()}:${String(a.getUTCMinutes()).padStart(2, "0")}` : `${a.getUTCMonth() + 1}/${a.getUTCDate()}`;
 }
 
-const FEED_LABEL: Record<string, string> = { top: "主要", business: "経済", knowledge: "知識に関係" };
+const FEED_LABEL: Record<string, string> = { interest: "📌 注目", top: "主要", business: "経済", knowledge: "知識に関係" };
 
-export function NewsList({ items, showDay = false }: { items: TodayNewsItem[]; showDay?: boolean }) {
+export function NewsList({ items, showDay = false }: { items: LatestNewsItem[]; showDay?: boolean }) {
   return (
     <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
       {items.map((n) => {
@@ -59,27 +59,60 @@ export function NewsList({ items, showDay = false }: { items: TodayNewsItem[]; s
   );
 }
 
-/** ホーム：本日のニュース（その日はじめて開いたときに集める） */
+/** 「9:30 時点」（今日でなければ「10/7 21:05 時点」） */
+function fetchedLabel(d: Date, now = new Date()) {
+  const jst = (x: Date) => new Date(x.getTime() + 9 * 3600_000);
+  const a = jst(d);
+  const time = `${a.getUTCHours()}:${String(a.getUTCMinutes()).padStart(2, "0")}`;
+  return a.toISOString().slice(0, 10) === jst(now).toISOString().slice(0, 10) ? `${time} 時点` : `${a.getUTCMonth() + 1}/${a.getUTCDate()} ${time} 時点`;
+}
+
+/** ホーム：最新のニュース（前回から3時間以上たっていれば、開いたときに集め直す。更新ボタンですぐに集め直せる） */
 export async function TodayNewsSection() {
   try {
     // E2E テストなどでは外部のニュースを取りに行かない
-    if (process.env.NEWS_DISABLED !== "1") await ensureTodayNews(prisma);
+    if (process.env.NEWS_DISABLED !== "1") await refreshNews(prisma);
   } catch {
     // 集められなくてもホームは表示する
   }
-  const items = await listTodayNews(prisma).catch(() => []);
+  const [{ fetchedAt, items }, interests] = await Promise.all([
+    listLatestNews(prisma).catch(() => ({ fetchedAt: null, items: [] as LatestNewsItem[] })),
+    listNewsInterests(prisma).catch(() => []),
+  ]);
   return (
     <section aria-labelledby="h-news">
-      <SectionTitle action={<Link href="/news" className="text-sm text-primary">保存したニュース</Link>}>
-        <span id="h-news">📰 本日のニュース</span>
+      <SectionTitle
+        action={
+          <span className="flex items-center gap-1">
+            <RefreshNewsButton />
+            <Link href="/news" className="text-sm text-primary">
+              保存
+            </Link>
+          </span>
+        }
+      >
+        <span id="h-news">📰 最新のニュース</span>
+        {fetchedAt ? <span className="ml-2 text-xs font-normal text-muted-foreground">{fetchedLabel(fetchedAt)}</span> : null}
       </SectionTitle>
       {items.length ? (
         <>
           <NewsList items={items} />
-          <p className="mt-2 text-xs text-muted-foreground">見出しとリンクは Yahoo!ニュース・Google ニュースから。🔖 で保存すると知識につなげられます。</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {interests.length ? (
+              <>
+                📌 追っている知識（{interests.slice(0, 3).map((k) => k.title).join("・")}
+                {interests.length > 3 ? ` ほか${interests.length - 3}件` : ""}）のニュースを中心に集めています。
+                <Link href="/news" className="text-primary">
+                  変更
+                </Link>
+                <br />
+              </>
+            ) : null}
+            見出しとリンクは Yahoo!ニュース・Google ニュースから。3時間ごとに入れ替わります（↻ ですぐに更新）。🔖 で保存すると知識につなげられます。
+          </p>
         </>
       ) : (
-        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">今日のニュースを取得できませんでした。しばらくしてから開き直してください。</p>
+        <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">ニュースを取得できませんでした。↻ を押すか、しばらくしてから開き直してください。</p>
       )}
     </section>
   );
@@ -87,8 +120,8 @@ export async function TodayNewsSection() {
 
 export function TodayNewsSkeleton() {
   return (
-    <section aria-label="本日のニュースを読み込み中">
-      <SectionTitle>📰 本日のニュース</SectionTitle>
+    <section aria-label="最新のニュースを読み込み中">
+      <SectionTitle>📰 最新のニュース</SectionTitle>
       <div className="space-y-2 rounded-2xl border bg-card p-4">
         {[0, 1, 2].map((i) => (
           <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />

@@ -30,3 +30,16 @@ export async function unlinkNewsKnowledgeAction(newsId: string, knowledgeId: str
 export async function createKnowledgeFromNewsAction(id: string, input: { title: string; content?: string; category?: string | null }) {
   return run(async () => ({ id: (await news.createKnowledgeFromNews(prisma, id, input)).id }));
 }
+
+/** 更新ボタン：すぐに最新のニュースを集め直す（前回から5分以内なら何もしない） */
+export async function refreshNewsAction() {
+  return run(async (): Promise<news.RefreshResult> => {
+    if (process.env.NEWS_DISABLED === "1") return { refreshed: false, reason: "failed" };
+    return news.refreshNews(prisma, { force: true });
+  });
+}
+
+/** 知識を「ニュースで追う」に入れる・外す */
+export async function setNewsInterestAction(knowledgeId: string, on: boolean) {
+  return run(() => news.setNewsInterest(prisma, knowledgeId, on));
+}
