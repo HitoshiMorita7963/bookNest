@@ -12,6 +12,8 @@ import { KnowledgeMenu, UnlinkKnowledgeButton } from "@/components/knowledge/kno
 import { CreativeUsageSection } from "@/components/creative/usage-section";
 import { ReadMore } from "@/components/ui/read-more";
 import { LinkQuoteToKnowledgeButton, UnlinkQuoteKnowledgeButton } from "@/components/knowledge/quote-knowledge-links";
+import { UnlinkNewsButton } from "@/components/news/news-client";
+import { listSavedNews } from "@/server/services/news";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,6 +25,7 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
   const { id } = await params;
   const k = await getKnowledge(prisma, id);
   if (!k) notFound();
+  const news = await listSavedNews(prisma, { knowledgeId: k.id, take: 30 });
   const links = [
     ...k.linksFrom.map((l) => ({ dir: "to" as const, note: l.to, label: l.label })),
     ...k.linksTo.map((l) => ({ dir: "from" as const, note: l.from, label: l.label })),
@@ -88,6 +91,26 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
             <p className="text-sm text-muted-foreground">「フレーズを追加」から、この知識のきっかけになったフレーズを関連付けられます。</p>
           )}
         </section>
+
+        {news.length ? (
+          <section aria-label="関連ニュース">
+            <SectionTitle>📰 関連ニュース</SectionTitle>
+            <ul className="space-y-2">
+              {news.map((n) => (
+                <li key={n.id} className="flex items-start gap-1 rounded-xl border bg-card py-1 pr-1 pl-3">
+                  <a href={n.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 py-1.5">
+                    <p className="line-clamp-2 text-sm font-medium hover:underline">{n.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[n.source, n.savedAt ? `${format(n.savedAt, "yyyy/M/d")} に保存` : null].filter(Boolean).join("・")}
+                    </p>
+                    {n.memo ? <p className="mt-0.5 text-xs text-muted-foreground">📝 {n.memo}</p> : null}
+                  </a>
+                  <UnlinkNewsButton newsId={n.id} knowledgeId={k.id} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section>
           <SectionTitle>🔗 つながる知識</SectionTitle>

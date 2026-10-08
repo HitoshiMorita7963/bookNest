@@ -49,6 +49,8 @@ const TABLES = [
   "creativeKnowledgeReference",
   "creativeKnowledgeSource",
   "creativeLink",
+  "newsItem",
+  "newsKnowledge",
   "aIConversation",
   "aIMessage",
 ] as const;
@@ -171,7 +173,7 @@ async function plan(db: Db, f: BackupFile): Promise<Plan> {
   const t = f.tables;
   const map = (table: string) => (idMap[table] ??= new Map());
 
-  const byName = async (table: "author" | "tag" | "series" | "customShelf", key: "name" | "title") => {
+  const byName = async (table: "author" | "tag" | "series" | "customShelf" | "newsItem", key: "name" | "title" | "url") => {
     const rows = t[table] ?? [];
     const existing = await delegate(db, table).findMany();
     const lookup = new Map(existing.map((e) => [String(e[key]), String(e.id)]));
@@ -189,6 +191,8 @@ async function plan(db: Db, f: BackupFile): Promise<Plan> {
   await byName("tag", "name");
   await byName("series", "title");
   await byName("customShelf", "name");
+  // ニュースは URL が同じなら同じもの
+  await byName("newsItem", "url");
 
   const books = t.book ?? [];
   const existingBooks = await db.book.findMany({ select: { id: true, isbn13: true } });
@@ -270,6 +274,7 @@ const FK: Partial<Record<Table, Record<string, string>>> = {
     knowledgeNoteId: "knowledgeNote",
   },
   creativeKnowledgeSource: { knowledgeId: "creativeKnowledge", bookId: "book" },
+  newsKnowledge: { newsId: "newsItem", knowledgeId: "knowledgeNote" },
   creativeLink: {
     ckId: "creativeKnowledge",
     bookId: "book",
@@ -285,7 +290,7 @@ const FK: Partial<Record<Table, Record<string, string>>> = {
     targetNoteId: "creativeNote",
   },
 };
-const JOIN_TABLES = new Set<Table>(["creativeKnowledgeCategory", "creativeKnowledgeTag", "creativeNoteTag", "bookAuthor", "bookTag", "bookRelation", "shelfBook", "quoteTag", "knowledgeTag", "bookKnowledge", "quoteKnowledge", "knowledgeLink", "readingPathBook"]);
+const JOIN_TABLES = new Set<Table>(["newsKnowledge", "creativeKnowledgeCategory", "creativeKnowledgeTag", "creativeNoteTag", "bookAuthor", "bookTag", "bookRelation", "shelfBook", "quoteTag", "knowledgeTag", "bookKnowledge", "quoteKnowledge", "knowledgeLink", "readingPathBook"]);
 
 export async function runImport(db: Db, text: string) {
   const f = parseBackup(text);

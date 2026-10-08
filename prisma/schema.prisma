@@ -257,6 +257,7 @@ model KnowledgeNote {
   linksTo       KnowledgeLink[]              @relation("linkTo")
   creativeLinks CreativeLink[]
   ckReferences  CreativeKnowledgeReference[]
+  news          NewsKnowledge[]
 
   @@index([title])
   @@index([category])
@@ -718,4 +719,39 @@ model CreativeKnowledgeSource {
 
   @@index([knowledgeId])
   @@index([bookId])
+}
+
+// 本日のニュース（RSS から集めた見出しとリンク。本文は保存しない）
+model NewsItem {
+  id          String          @id @default(cuid())
+  title       String
+  url         String          @unique
+  /// 配信元（例：Yahoo!ニュース、日本経済新聞）
+  source      String          @default("")
+  /// top：主要 / business：経済 / knowledge：知識に関係
+  feed        String          @default("top")
+  publishedAt DateTime?
+  /// 集めた日（日本時間の YYYY-MM-DD）
+  day         String
+  /// 見出しから見つけた関係しそうな知識（候補）
+  keyword     String?
+  /// 保存した日時（null は未保存。未保存は数日で消える）
+  savedAt     DateTime?
+  memo        String          @default("")
+  createdAt   DateTime        @default(now())
+  knowledge   NewsKnowledge[]
+
+  @@index([day])
+  @@index([savedAt])
+}
+
+model NewsKnowledge {
+  newsId      String
+  knowledgeId String
+  createdAt   DateTime      @default(now())
+  news        NewsItem      @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  knowledge   KnowledgeNote @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@id([newsId, knowledgeId])
+  @@index([knowledgeId])
 }

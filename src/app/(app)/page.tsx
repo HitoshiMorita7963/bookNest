@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ChevronRight, Plus, Search } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { BookCover } from "@/components/books/book-cover";
@@ -15,6 +16,7 @@ import { getYearlyBookGoal } from "@/server/services/goals";
 import { recommendNext } from "@/server/services/recommend";
 import { bookListInclude } from "@/server/services/books";
 import { formatNumber, progressPercent } from "@/lib/utils";
+import { TodayNewsSection, TodayNewsSkeleton } from "@/components/news/news-list";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +124,11 @@ export default async function HomePage() {
           </Link>
         ) : null}
       </section>
+
+      {/* 本日のニュース（集めるのに時間がかかることがあるので、ほかの部分を待たせない） */}
+      <Suspense fallback={<TodayNewsSkeleton />}>
+        <TodayNewsSection />
+      </Suspense>
 
       {/* 今月 */}
       <section aria-labelledby="h-month">

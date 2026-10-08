@@ -24,6 +24,7 @@ import {
   Lightbulb,
   NotebookPen,
   BrainCircuit,
+  Newspaper,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,7 @@ export const SIDEBAR_GROUPS: { title?: string; items: NavItem[] }[] = [
       { href: "/quotes", label: "フレーズ", icon: MessageSquareQuote },
       { href: "/knowledge", label: "知識", icon: Brain },
       { href: "/knowledge/map", label: "知識マップ", icon: Network },
+      { href: "/news", label: "ニュース", icon: Newspaper },
     ],
   },
   {
