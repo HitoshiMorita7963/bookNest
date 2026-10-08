@@ -79,7 +79,7 @@ export default async function KnowledgeDetailPage({ params }: { params: Promise<
             <div className="space-y-3">
               {k.quotes.map(({ quote: q }) => (
                 <div key={q.id}>
-                  <QuoteCard quote={q} />
+                  <QuoteCard quote={q} hideKnowledgeId={k.id} />
                   <div className="mt-1 flex items-center justify-end gap-1 text-xs text-muted-foreground">
                     このフレーズとの関連付けを解除
                     <UnlinkQuoteKnowledgeButton quoteId={q.id} knowledgeId={k.id} />

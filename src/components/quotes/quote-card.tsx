@@ -15,13 +15,16 @@ export interface QuoteCardData {
   createdAt: Date;
   tags: { tag: { name: string } }[];
   book: { id: string; title: string; authors?: { author: { name: string } }[] } | null;
+  /** つながっている知識（読み込んでいる画面だけ表示する） */
+  knowledge?: { knowledge: { id: string; title: string } }[];
 }
 
 function pageLabel(p: string) {
   return /^\d+(-\d+)?$/.test(p) ? `p.${p}` : p;
 }
 
-export function QuoteCard({ quote, highlight }: { quote: QuoteCardData; highlight?: string }) {
+export function QuoteCard({ quote, highlight, hideKnowledgeId }: { quote: QuoteCardData; highlight?: string; hideKnowledgeId?: string }) {
+  const knowledge = (quote.knowledge ?? []).map((k) => k.knowledge).filter((k) => k.id !== hideKnowledgeId);
   return (
     <article className="relative rounded-2xl border bg-card p-4 md:p-5">
       <Link href={`/quotes/${quote.id}`} className="absolute inset-0 rounded-2xl" aria-label="フレーズの詳細を開く" />
@@ -52,6 +55,17 @@ export function QuoteCard({ quote, highlight }: { quote: QuoteCardData; highligh
             <TagChip key={t.tag.name} name={t.tag.name} href={`/quotes?tag=${encodeURIComponent(t.tag.name)}`} />
           ))}
         </div>
+      ) : null}
+      {knowledge.length ? (
+        <ul className="relative z-10 mt-2 flex flex-wrap gap-1.5" aria-label="つながっている知識">
+          {knowledge.map((k) => (
+            <li key={k.id}>
+              <Link href={`/knowledge/${k.id}`} className="inline-flex min-h-7 items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary hover:bg-primary/15">
+                🧠 {k.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
       ) : null}
       {quote.note ? (
         <div className="relative mt-3 rounded-xl bg-muted/60 p-3 text-sm">

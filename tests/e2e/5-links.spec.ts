@@ -45,6 +45,14 @@ test("フレーズと知識をあとから関連付け・解除できる", async
 
   await page.goto(quoteUrl);
   await expect(page.getByRole("link", { name: /あとからつなぐ知識/ })).toBeVisible();
+
+  // フレーズ一覧のカードにも、つながっている知識が表示される（押すと知識へ）
+  await page.goto("/quotes?q=あとからつなぐ");
+  const card = page.locator("article", { hasText: "あとからつなぐフレーズ" });
+  await card.getByRole("list", { name: "つながっている知識" }).getByRole("link", { name: "🧠 あとからつなぐ知識" }).click();
+  await expect(page).toHaveURL(knowledgeUrl);
+  // 知識の画面のフレーズカードでは、その知識自身は繰り返さない
+  await expect(page.getByRole("list", { name: "つながっている知識" })).toHaveCount(0);
 });
 
 test("創作への利用をフレーズ側から解除できる", async ({ page }) => {

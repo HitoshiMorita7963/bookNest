@@ -263,7 +263,7 @@ export async function getBookDetail(db: Db, id: string) {
       records: { orderBy: [{ createdAt: "desc" }] },
       sessions: { orderBy: { date: "desc" }, take: 30 },
       shelves: { include: { shelf: true } },
-      quotes: { include: { tags: { include: { tag: true } } }, orderBy: { createdAt: "desc" } },
+      quotes: { include: { tags: { include: { tag: true } }, knowledge: { include: { knowledge: { select: { id: true, title: true } } } } }, orderBy: { createdAt: "desc" } },
       knowledge: { include: { knowledge: true } },
       relatedTo: { include: { to: { include: bookListInclude } } },
       relatedBy: { include: { from: { include: bookListInclude } } },

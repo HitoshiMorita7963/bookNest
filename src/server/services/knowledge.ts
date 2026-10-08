@@ -141,7 +141,7 @@ export async function getKnowledge(db: Db, id: string) {
     include: {
       tags: { include: { tag: true } },
       books: { include: { book: { include: { authors: { include: { author: true }, orderBy: { position: "asc" } } } } } },
-      quotes: { include: { quote: { include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true } } } } } },
+      quotes: { include: { quote: { include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true } }, knowledge: { include: { knowledge: { select: { id: true, title: true } } } } } } } },
       linksFrom: { include: { to: { select: { id: true, title: true, category: true } } } },
       linksTo: { include: { from: { select: { id: true, title: true, category: true } } } },
     },

@@ -43,7 +43,7 @@ export async function getAuthorDetail(db: Db, id: string) {
   const [quotes, quoteCount] = await Promise.all([
     db.quote.findMany({
       where: quoteWhere,
-      include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true } } },
+      include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true } }, knowledge: { include: { knowledge: { select: { id: true, title: true } } } } },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
