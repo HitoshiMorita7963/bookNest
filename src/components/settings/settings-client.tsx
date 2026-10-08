@@ -380,7 +380,7 @@ export function AiCard({ settings, configured, model, providerLabel }: { setting
         <label className="flex items-start justify-between gap-4 border-t pt-4">
           <span className="text-sm">
             <span className="font-medium">本日のニュースで、知識に関係するニュースを探す</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">オンにすると、知識のタイトルの一部（例：データセンター）が Google ニュースの検索語として送られます。オフにすると主要ニュースだけを集めます。</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">オンにすると、知識のタイトルの一部（例：データセンター）が Google ニュースの検索語として送られます。オフにすると主要ニュースだけを集めます（「ニュースで追う知識」も使いません）。</span>
           </span>
           <Switch
             checked={settings.newsKnowledgeSearch}

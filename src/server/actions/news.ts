@@ -38,3 +38,8 @@ export async function refreshNewsAction() {
     return news.refreshNews(prisma, { force: true });
   });
 }
+
+/** 知識を「ニュースで追う」に入れる・外す */
+export async function setNewsInterestAction(knowledgeId: string, on: boolean) {
+  return run(() => news.setNewsInterest(prisma, knowledgeId, on));
+}

@@ -8,10 +8,12 @@
 import type { Db } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
 import { createKnowledge } from "./knowledge";
-import { getSettings } from "./settings";
+import { getSettings, updateSettings } from "./settings";
 
 export const NEWS_TOP_COUNT = 5;
 export const NEWS_KNOWLEDGE_COUNT = 5;
+/** ニュースで追う知識を選んでいるときの主要ニュースの数（残りは追う知識に関係するニュース） */
+export const NEWS_TOP_WITH_INTERESTS = 3;
 /** 保存しなかったニュースを残す日数 */
 export const NEWS_KEEP_DAYS = 3;
 
@@ -19,7 +21,8 @@ const TOP_FEEDS = [
   { url: "https://news.yahoo.co.jp/rss/topics/top-picks.xml", feed: "top", source: "Yahoo!ニュース" },
   { url: "https://news.yahoo.co.jp/rss/topics/business.xml", feed: "business", source: "Yahoo!ニュース" },
 ] as const;
-const googleSearchUrl = (q: string) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:2d`)}&hl=ja&gl=JP&ceid=JP:ja`;
+/** Googleニュースの検索（days 日以内の記事） */
+const googleSearchUrl = (q: string, days = 2) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:${days}d`)}&hl=ja&gl=JP&ceid=JP:ja`;
 
 export type Fetcher = (url: string) => Promise<string | null>;
 
@@ -163,36 +166,68 @@ export async function refreshNews(db: Db, opts: { fetcher?: Fetcher; now?: Date;
     return true;
   };
 
+  // ニュースで追う知識（選んでいれば、その知識に関係するニュースを中心に集める）
+  const settings = await getSettings(db);
+  const interestNotes =
+    settings.newsKnowledgeSearch && settings.newsInterestIds.length
+      ? await db.knowledgeNote.findMany({ where: { id: { in: settings.newsInterestIds } }, select: { title: true } })
+      : [];
+  const interestKeywords = [...new Set(interestNotes.flatMap((n) => knowledgeKeywords(n.title)))];
+  const isInterest = (k: string) => interestKeywords.includes(k);
+  const topCount = interestKeywords.length ? NEWS_TOP_WITH_INTERESTS : NEWS_TOP_COUNT;
+  const relatedCount = NEWS_TOP_COUNT + NEWS_KNOWLEDGE_COUNT - topCount;
+
   // 主要ニュース：主要と経済から交互に
   const tops = await Promise.all(TOP_FEEDS.map(async (f) => ({ f, items: parseRss((await fetcher(f.url)) ?? "", f.source) })));
-  for (let i = 0, n = 0; n < NEWS_TOP_COUNT && i < 20; i++) {
+  for (let i = 0, n = 0; n < topCount && i < 20; i++) {
     for (const { f, items } of tops) {
-      if (n < NEWS_TOP_COUNT && items[i] && add(items[i], f.feed, findKeyword(items[i].title))) n++;
+      if (n < topCount && items[i] && add(items[i], f.feed, findKeyword(items[i].title))) n++;
     }
   }
 
-  // 知識に関係するニュース：最近さわった知識と、回ごとに入れ替わる知識から言葉を選んで検索
-  const { newsKnowledgeSearch } = await getSettings(db);
-  if (newsKnowledgeSearch && keywords.length) {
+  // 知識に関係するニュース：追う知識（なければ、最近さわった知識と回ごとに入れ替わる知識）から言葉を選んで検索
+  if (settings.newsKnowledgeSearch && keywords.length) {
     const seed = `${day}-${Math.floor(now.getTime() / (NEWS_REFRESH_HOURS * 3600_000))}`;
-    const recent = keywords.slice(0, 20);
-    const chosen = [...new Set([...dailyShuffle(recent, seed).slice(0, 3), ...dailyShuffle(keywords, seed).slice(0, 6)])].slice(0, 8);
-    const groups = [chosen.slice(0, 4), chosen.slice(4, 8)].filter((g) => g.length);
-    const results = await Promise.all(groups.map(async (g) => parseRss((await fetcher(googleSearchUrl(g.map((k) => `"${k}"`).join(" OR ")))) ?? "")));
+    let chosen: string[];
+    if (interestKeywords.length) {
+      const fromInterest = dailyShuffle(interestKeywords, seed).slice(0, 8);
+      // 追う知識が少ないときは、ほかの知識の言葉も少し足す（7件に届かないことを防ぐ）
+      const fill = fromInterest.length < 4 ? dailyShuffle(keywords.filter((k) => !isInterest(k)), seed).slice(0, 6 - fromInterest.length) : [];
+      chosen = [...fromInterest, ...fill];
+    } else {
+      const recent = keywords.slice(0, 20);
+      chosen = [...new Set([...dailyShuffle(recent, seed).slice(0, 3), ...dailyShuffle(keywords, seed).slice(0, 6)])].slice(0, 8);
+    }
+    // 4語ずつ検索する。追う知識は記事が少ないこともあるので7日以内、それ以外は2日以内
+    const chunk = (ks: string[]) => [ks.slice(0, 4), ks.slice(4, 8)].filter((g) => g.length);
+    const groups = [...chunk(chosen.filter(isInterest)).map((g) => ({ g, days: 7 })), ...chunk(chosen.filter((k) => !isInterest(k))).map((g) => ({ g, days: 2 }))].slice(0, 3);
+    const results = await Promise.all(groups.map(async ({ g, days }) => parseRss((await fetcher(googleSearchUrl(g.map((k) => `"${k}"`).join(" OR "), days))) ?? "")));
     const candidates = results
       .flat()
       .map((it) => ({ it, keyword: chosen.filter((k) => titleHasKeyword(it.title, k)).sort((a, b) => b.length - a.length)[0] ?? null }))
       .filter((c): c is { it: RssItem; keyword: string } => !!c.keyword)
-      .sort((a, b) => (b.it.publishedAt?.getTime() ?? 0) - (a.it.publishedAt?.getTime() ?? 0));
-    // 同じ言葉のニュースが並ばないよう、まず1つの言葉につき1件
-    const usedKeywords = new Set<string>();
+      // 追う知識のニュースを先に、その中では新しい順
+      .sort((a, b) => Number(isInterest(b.keyword)) - Number(isInterest(a.keyword)) || (b.it.publishedAt?.getTime() ?? 0) - (a.it.publishedAt?.getTime() ?? 0));
+    // 1回目は1つの言葉につき1件（いろいろな話題を並べる）。足りなければ、追う知識の言葉は何件でも
+    const used = new Map<string, number>();
     let n = 0;
-    for (const c of candidates) {
-      if (n >= NEWS_KNOWLEDGE_COUNT || usedKeywords.has(c.keyword)) continue;
-      if (add(c.it, "knowledge", c.keyword)) {
-        usedKeywords.add(c.keyword);
-        n++;
+    for (const limit of [1, relatedCount]) {
+      for (const c of candidates) {
+        if (n >= relatedCount) break;
+        if ((used.get(c.keyword) ?? 0) >= limit || (limit > 1 && !isInterest(c.keyword))) continue;
+        if (add(c.it, isInterest(c.keyword) ? "interest" : "knowledge", c.keyword)) {
+          used.set(c.keyword, (used.get(c.keyword) ?? 0) + 1);
+          n++;
+        }
       }
+    }
+  }
+
+  // 知識に関係するニュースが足りなければ、主要ニュースで埋めて合計を保つ
+  const total = NEWS_TOP_COUNT + NEWS_KNOWLEDGE_COUNT;
+  for (let i = 0; picked.length < total && i < 20; i++) {
+    for (const { f, items } of tops) {
+      if (picked.length < total && items[i]) add(items[i], f.feed, findKeyword(items[i].title));
     }
   }
 
@@ -202,7 +237,7 @@ export async function refreshNews(db: Db, opts: { fetcher?: Fetcher; now?: Date;
     await db.newsItem.upsert({
       where: { url: it.url },
       create: { title: it.title.slice(0, 300), url: it.url.slice(0, 2000), source: it.source.slice(0, 100), feed: it.feed, publishedAt: it.publishedAt, day, keyword: it.keyword, fetchedAt: now },
-      update: { fetchedAt: now, day },
+      update: { fetchedAt: now, day, feed: it.feed, keyword: it.keyword },
     });
   }
   return { refreshed: true };
@@ -232,7 +267,8 @@ export async function listLatestNews(db: Db) {
     include: newsInclude,
     orderBy: [{ createdAt: "asc" }],
   });
-  const order = (f: string) => (f === "knowledge" ? 1 : 0);
+  // 追う知識 → 主要・経済 → 知識に関係 の順
+  const order = (f: string) => (f === "interest" ? 0 : f === "knowledge" ? 2 : 1);
   return { fetchedAt, items: await withCandidates(db, items.sort((a, b) => order(a.feed) - order(b.feed))) };
 }
 export type LatestNewsItem = Awaited<ReturnType<typeof listLatestNews>>["items"][number];
@@ -280,4 +316,29 @@ export async function createKnowledgeFromNews(db: Db, id: string, input: { title
   const note = await createKnowledge(db, { title, content, category: input.category || null });
   await saveNews(db, id, { knowledgeIds: [note.id] });
   return note;
+}
+
+/* ---------------- ニュースで追う知識 ---------------- */
+
+/** ニュースで追う知識（選んだ順。消えた知識は除く） */
+export async function listNewsInterests(db: Db) {
+  const { newsInterestIds } = await getSettings(db);
+  if (!newsInterestIds.length) return [];
+  const notes = await db.knowledgeNote.findMany({ where: { id: { in: newsInterestIds } }, select: { id: true, title: true, category: true } });
+  return newsInterestIds.map((id) => notes.find((n) => n.id === id)).filter((n): n is NonNullable<typeof n> => !!n);
+}
+
+/** 知識を「ニュースで追う」に入れる・外す */
+export async function setNewsInterest(db: Db, knowledgeId: string, on: boolean) {
+  const { newsInterestIds } = await getSettings(db);
+  if (on) {
+    if (!(await db.knowledgeNote.count({ where: { id: knowledgeId } }))) throw new NotFoundError("知識");
+    if (newsInterestIds.includes(knowledgeId)) return;
+    if (newsInterestIds.length >= 50) throw new AppError("ニュースで追える知識は50件までです", "VALIDATION");
+    // 消えた知識の ID はこのときに片付ける
+    const alive = new Set((await db.knowledgeNote.findMany({ where: { id: { in: newsInterestIds } }, select: { id: true } })).map((n) => n.id));
+    await updateSettings(db, { newsInterestIds: [...newsInterestIds.filter((id) => alive.has(id)), knowledgeId] });
+  } else {
+    await updateSettings(db, { newsInterestIds: newsInterestIds.filter((id) => id !== knowledgeId) });
+  }
 }

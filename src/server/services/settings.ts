@@ -8,6 +8,8 @@ export const settingsSchema = z.object({
   defaultOcrDirection: z.enum(["auto", "horizontal", "vertical"]).default("auto"),
   /** 本日のニュースで、知識のタイトルを使って関係するニュースを探す（知識のタイトルが Google ニュースの検索語として送られる） */
   newsKnowledgeSearch: z.boolean().default(true),
+  /** ニュースで追う知識（ID）。選んだ知識に関係するニュースを中心に集める */
+  newsInterestIds: z.array(z.string().max(50)).max(100).default([]),
   /** 自分で削除したサンプルの創作知識（slug）。「基本の創作知識」の読み込みで戻さない */
   ckSeedDeleted: z.array(z.string().max(80)).max(1000).default([]),
 });

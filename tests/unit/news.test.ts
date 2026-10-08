@@ -10,6 +10,8 @@ import {
   listLatestNews,
   parseRss,
   refreshNews,
+  setNewsInterest,
+  listNewsInterests,
   saveNews,
   titleHasKeyword,
   unsaveNews,
@@ -198,5 +200,62 @@ describe("news in backups", () => {
     expect((await listSavedNews(db))[0].memo).toBe("電力");
     await runImport(db, json);
     expect(await db.newsItem.count()).toBe(count);
+  });
+});
+
+describe("knowledge to follow in the news", () => {
+  it("puts news about followed knowledge first (3 top + up to 7 related), filling with other knowledge", async () => {
+    const rapidus = await createKnowledge(db, { title: "ラピダス", content: "" });
+    await createKnowledge(db, { title: "書店・取次", content: "" });
+    await createKnowledge(db, { title: "データセンター", content: "" });
+    await setNewsInterest(db, rapidus.id, true);
+    await setNewsInterest(db, rapidus.id, true);
+    expect((await listNewsInterests(db)).map((k) => k.title)).toEqual(["ラピダス"]);
+
+    const calls: string[] = [];
+    await refreshNews(db, { fetcher: fakeFetcher(calls), now: NOW });
+    const items = await latest();
+    // 追う知識のニュースが先頭に「interest」として並ぶ
+    expect(items[0]).toMatchObject({ title: "ラピダスが試作ラインを公開", feed: "interest", keyword: "ラピダス" });
+    // 追う知識が少ないので、ほかの知識のニュースでも埋める
+    expect(items.filter((n) => n.feed === "knowledge").map((n) => n.keyword)).toEqual(["書店"]);
+    // それでも足りない分は主要ニュースで埋める（この例では主要が5件しかないので合計7件）
+    expect(items.filter((n) => n.feed === "top" || n.feed === "business")).toHaveLength(5);
+    // 検索語には追う知識が必ず入る
+    expect(calls.some((c) => c.includes("news.google.com") && decodeURIComponent(c).includes('"ラピダス"'))).toBe(true);
+  });
+
+  it("can fill 7 of 10 with one followed knowledge item when there are enough articles", async () => {
+    const rapidus = await createKnowledge(db, { title: "ラピダス", content: "" });
+    await setNewsInterest(db, rapidus.id, true);
+    const fetcher: Fetcher = async (url) => {
+      if (url.includes("news.google.com")) return rss(Array.from({ length: 9 }, (_, i) => ({ title: `ラピダスの話題${i}と別の件${i}`, link: `https://g/${i}` })));
+      return (await fakeFetcher()(url));
+    };
+    const calls: string[] = [];
+    await refreshNews(db, { fetcher: async (u) => (calls.push(u), fetcher(u)), now: NOW });
+    const items = await latest();
+    expect(items.filter((n) => n.feed === "interest")).toHaveLength(7);
+    expect(items.filter((n) => n.feed === "top" || n.feed === "business")).toHaveLength(3);
+    // 追う知識は7日以内まで探す
+    expect(calls.some((c) => decodeURIComponent(c).includes("when:7d"))).toBe(true);
+  });
+
+  it("is ignored when searching with knowledge titles is off, and can be removed or disappears with the knowledge", async () => {
+    const rapidus = await createKnowledge(db, { title: "ラピダス", content: "" });
+    const store = await createKnowledge(db, { title: "書店・取次", content: "" });
+    await setNewsInterest(db, rapidus.id, true);
+    await setNewsInterest(db, store.id, true);
+    await updateSettings(db, { newsKnowledgeSearch: false });
+    const calls: string[] = [];
+    await refreshNews(db, { fetcher: fakeFetcher(calls), now: NOW });
+    expect(calls.some((c) => c.includes("google"))).toBe(false);
+    expect((await latest()).filter((n) => n.feed === "top" || n.feed === "business")).toHaveLength(5);
+
+    await setNewsInterest(db, rapidus.id, false);
+    expect((await listNewsInterests(db)).map((k) => k.title)).toEqual(["書店・取次"]);
+    await db.knowledgeNote.delete({ where: { id: store.id } });
+    expect(await listNewsInterests(db)).toEqual([]);
+    await expect(setNewsInterest(db, "nope", true)).rejects.toThrow(/知識/);
   });
 });

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { SectionTitle } from "@/components/books/bits";
-import { listLatestNews, refreshNews, type LatestNewsItem } from "@/server/services/news";
+import { listLatestNews, listNewsInterests, refreshNews, type LatestNewsItem } from "@/server/services/news";
 import { NewsSaveButton, RefreshNewsButton } from "./news-client";
 
 /** 日本時間の時刻（今日なら「9:30」、それ以外は「10/7」） */
@@ -14,7 +14,7 @@ function when(d: Date | null, now = new Date()) {
   return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10) ? `${a.getUTCHours()}:${String(a.getUTCMinutes()).padStart(2, "0")}` : `${a.getUTCMonth() + 1}/${a.getUTCDate()}`;
 }
 
-const FEED_LABEL: Record<string, string> = { top: "主要", business: "経済", knowledge: "知識に関係" };
+const FEED_LABEL: Record<string, string> = { interest: "📌 注目", top: "主要", business: "経済", knowledge: "知識に関係" };
 
 export function NewsList({ items, showDay = false }: { items: LatestNewsItem[]; showDay?: boolean }) {
   return (
@@ -75,7 +75,10 @@ export async function TodayNewsSection() {
   } catch {
     // 集められなくてもホームは表示する
   }
-  const { fetchedAt, items } = await listLatestNews(prisma).catch(() => ({ fetchedAt: null, items: [] as LatestNewsItem[] }));
+  const [{ fetchedAt, items }, interests] = await Promise.all([
+    listLatestNews(prisma).catch(() => ({ fetchedAt: null, items: [] as LatestNewsItem[] })),
+    listNewsInterests(prisma).catch(() => []),
+  ]);
   return (
     <section aria-labelledby="h-news">
       <SectionTitle
@@ -94,7 +97,19 @@ export async function TodayNewsSection() {
       {items.length ? (
         <>
           <NewsList items={items} />
-          <p className="mt-2 text-xs text-muted-foreground">見出しとリンクは Yahoo!ニュース・Google ニュースから。3時間ごとに入れ替わります（↻ ですぐに更新）。🔖 で保存すると知識につなげられます。</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {interests.length ? (
+              <>
+                📌 追っている知識（{interests.slice(0, 3).map((k) => k.title).join("・")}
+                {interests.length > 3 ? ` ほか${interests.length - 3}件` : ""}）のニュースを中心に集めています。
+                <Link href="/news" className="text-primary">
+                  変更
+                </Link>
+                <br />
+              </>
+            ) : null}
+            見出しとリンクは Yahoo!ニュース・Google ニュースから。3時間ごとに入れ替わります（↻ ですぐに更新）。🔖 で保存すると知識につなげられます。
+          </p>
         </>
       ) : (
         <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">ニュースを取得できませんでした。↻ を押すか、しばらくしてから開き直してください。</p>
