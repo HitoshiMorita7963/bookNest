@@ -6,6 +6,15 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "booknest-dev-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "process.env.TURSO_DATABASE_URL='';process.env.TURSO_AUTH_TOKEN='';require('child_process').spawn('npx',['next','dev','-p','3001'],{stdio:'inherit',shell:true,env:process.env})"
+      ],
+      "port": 3001
     }
   ]
 }
