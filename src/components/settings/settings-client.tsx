@@ -377,6 +377,25 @@ export function AiCard({ settings, configured, model, providerLabel }: { setting
             aria-label="AI機能を使う"
           />
         </label>
+        <label className="flex items-start justify-between gap-4 border-t pt-4">
+          <span className="text-sm">
+            <span className="font-medium">本日のニュースで、知識に関係するニュースを探す</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">オンにすると、知識のタイトルの一部（例：データセンター）が Google ニュースの検索語として送られます。オフにすると主要ニュースだけを集めます。</span>
+          </span>
+          <Switch
+            checked={settings.newsKnowledgeSearch}
+            disabled={pending}
+            onCheckedChange={(c) =>
+              start(async () => {
+                const res = await updateSettingsAction({ newsKnowledgeSearch: c });
+                if (!res.ok) return void toast.error(res.error);
+                toast.success(c ? "知識に関係するニュースを探します（明日から反映）" : "主要ニュースだけを集めます（明日から反映）");
+                router.refresh();
+              })
+            }
+            aria-label="本日のニュースで、知識に関係するニュースを探す"
+          />
+        </label>
       </CardContent>
     </Card>
   );

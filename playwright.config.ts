@@ -37,7 +37,7 @@ export default defineConfig({
     timeout: 120_000,
     reuseExistingServer: false,
     env: CLOUD
-      ? { DATABASE_URL: "file:../tests/.e2e/unused.db", TURSO_DATABASE_URL: "file:tests/.e2e/cloud.db", APP_PASSWORD: E2E_PASSWORD, AI_API_KEY: "", OCR_PROVIDER: "tesseract" }
-      : { DATABASE_URL: "file:../tests/.e2e/e2e.db", TURSO_DATABASE_URL: "", APP_PASSWORD: "", AI_API_KEY: "", OCR_PROVIDER: "tesseract" },
+      ? { DATABASE_URL: "file:../tests/.e2e/unused.db", TURSO_DATABASE_URL: "file:tests/.e2e/cloud.db", APP_PASSWORD: E2E_PASSWORD, AI_API_KEY: "", OCR_PROVIDER: "tesseract", NEWS_DISABLED: "1" }
+      : { DATABASE_URL: "file:../tests/.e2e/e2e.db", TURSO_DATABASE_URL: "", APP_PASSWORD: "", AI_API_KEY: "", OCR_PROVIDER: "tesseract", NEWS_DISABLED: "1" },
   },
 });
