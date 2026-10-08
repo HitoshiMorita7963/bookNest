@@ -4,12 +4,12 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bookmark, BookmarkCheck, Check, Loader2, Plus, Search, X } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { Sheet, SheetContent } from "@/components/ui/overlays";
 import { pickKnowledgeAction } from "@/server/actions/knowledge";
-import { createKnowledgeFromNewsAction, saveNewsAction, unlinkNewsKnowledgeAction, unsaveNewsAction } from "@/server/actions/news";
+import { createKnowledgeFromNewsAction, refreshNewsAction, saveNewsAction, unlinkNewsKnowledgeAction, unsaveNewsAction } from "@/server/actions/news";
 import { cn } from "@/lib/utils";
 
 interface KnowledgeOption {
@@ -194,6 +194,33 @@ export function UnlinkNewsButton({ newsId, knowledgeId }: { newsId: string; know
       }
     >
       {pending ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+    </Button>
+  );
+}
+
+/** ホームの「最新のニュース」：すぐに集め直す */
+export function RefreshNewsButton() {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="ニュースを更新"
+      title="ニュースを更新"
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const res = await refreshNewsAction();
+          if (!res.ok) return void toast.error(res.error);
+          if (res.data.refreshed) toast.success("最新のニュースに更新しました");
+          else if (res.data.reason === "too-soon") toast.info("さっき更新したばかりです。数分たってからもう一度どうぞ");
+          else toast.error("ニュースを取得できませんでした。しばらくしてからお試しください");
+          router.refresh();
+        })
+      }
+    >
+      <RefreshCw className={cn("size-4", pending && "animate-spin")} />
     </Button>
   );
 }

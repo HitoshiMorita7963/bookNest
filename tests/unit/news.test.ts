@@ -4,12 +4,12 @@ import { createKnowledge } from "@/server/services/knowledge";
 import { updateSettings } from "@/server/services/settings";
 import {
   createKnowledgeFromNews,
-  ensureTodayNews,
   jstDay,
   knowledgeKeywords,
   listSavedNews,
-  listTodayNews,
+  listLatestNews,
   parseRss,
+  refreshNews,
   saveNews,
   titleHasKeyword,
   unsaveNews,
@@ -69,47 +69,95 @@ describe("news helpers", () => {
   });
 });
 
-describe("today's news", () => {
-  it("collects top news and knowledge-related news once a day, with candidate knowledge", async () => {
+const HOUR = 3600_000;
+const latest = async () => (await listLatestNews(db)).items;
+
+describe("latest news", () => {
+  it("collects top news and knowledge-related news, with candidate knowledge, and does not refetch while fresh", async () => {
     await createKnowledge(db, { title: "データセンター", content: "" });
     await createKnowledge(db, { title: "書店・取次", content: "" });
     await createKnowledge(db, { title: "ラピダス", content: "" });
     await createKnowledge(db, { title: "AI(海外)", content: "" });
     const calls: string[] = [];
-    expect(await ensureTodayNews(db, { fetcher: fakeFetcher(calls), now: NOW })).toBe(true);
-    // 2回目は集めない
-    expect(await ensureTodayNews(db, { fetcher: fakeFetcher(calls), now: NOW })).toBe(false);
+    expect(await refreshNews(db, { fetcher: fakeFetcher(calls), now: NOW })).toEqual({ refreshed: true });
+    // 3時間たつまでは、開いても集め直さない
+    expect(await refreshNews(db, { fetcher: fakeFetcher(calls), now: new Date(NOW.getTime() + 2 * HOUR) })).toEqual({ refreshed: false, reason: "fresh" });
     expect(calls.filter((c) => c.includes("yahoo")).length).toBe(2);
 
-    const today = await listTodayNews(db, NOW);
-    const top = today.filter((n) => n.feed !== "knowledge");
+    const { fetchedAt, items } = await listLatestNews(db);
+    expect(fetchedAt).toEqual(NOW);
+    const top = items.filter((n) => n.feed !== "knowledge");
     // 主要と経済から交互に、同じ記事は1回だけ
     expect(top.map((n) => n.title)).toEqual(["首相が会見 経済対策を発表", "日銀が利上げを決定", "台風が接近 交通に影響", "データセンター誘致で地方に投資", "半導体大手が増益"]);
     // 見出しに知識の名前があれば候補として出す
     expect(top.find((n) => n.title.startsWith("データセンター"))?.candidates.map((c) => c.title)).toEqual(["データセンター"]);
-    const related = today.filter((n) => n.feed === "knowledge");
+    const related = items.filter((n) => n.feed === "knowledge");
     expect(related.map((n) => [n.title, n.source, n.keyword])).toEqual([
       ["ラピダスが試作ラインを公開", "日本経済新聞", "ラピダス"],
       ["書店の閉店相次ぐ", "地方紙", "書店"],
     ]);
   });
 
+  it("refreshes automatically after 3 hours and with the button (not within 5 minutes), showing only the latest batch", async () => {
+    let round = 0;
+    // 回ごとに1件だけ新しい記事が出る
+    const fetcher: Fetcher = async (url) =>
+      url.includes("top-picks")
+        ? rss([
+            { title: "ずっと出ている記事", link: "https://n/always" },
+            { title: `第${round}回の新しい記事`, link: `https://n/new-${round}` },
+          ])
+        : null;
+    await refreshNews(db, { fetcher, now: NOW });
+    expect((await latest()).map((n) => n.title)).toEqual(["ずっと出ている記事", "第0回の新しい記事"]);
+
+    // 更新ボタン：5分以内は集め直さない
+    round = 1;
+    expect(await refreshNews(db, { fetcher, now: new Date(NOW.getTime() + 3 * 60_000), force: true })).toEqual({ refreshed: false, reason: "too-soon" });
+    // 10分後なら集め直す。前の回の記事は最新の一覧から外れ、続けて出ている記事は残る
+    const t1 = new Date(NOW.getTime() + 10 * 60_000);
+    expect(await refreshNews(db, { fetcher, now: t1, force: true })).toEqual({ refreshed: true });
+    expect((await listLatestNews(db)).fetchedAt).toEqual(t1);
+    expect((await latest()).map((n) => n.title)).toEqual(["ずっと出ている記事", "第1回の新しい記事"]);
+
+    // 3時間後に開くと自動で集め直す
+    round = 2;
+    const t2 = new Date(t1.getTime() + 3 * HOUR);
+    expect(await refreshNews(db, { fetcher, now: t2 })).toEqual({ refreshed: true });
+    expect((await latest()).map((n) => n.title)).toEqual(["ずっと出ている記事", "第2回の新しい記事"]);
+    // 同じ記事は重複しない
+    expect(await db.newsItem.count({ where: { url: "https://n/always" } })).toBe(1);
+
+    // 取得に失敗したときは、前の回をそのまま見せる
+    expect(await refreshNews(db, { fetcher: async () => null, now: new Date(t2.getTime() + 4 * HOUR) })).toEqual({ refreshed: false, reason: "failed" });
+    expect((await latest()).map((n) => n.title)).toEqual(["ずっと出ている記事", "第2回の新しい記事"]);
+  });
+
+  it("treats news collected before the fetchedAt column existed as the latest batch", async () => {
+    await db.newsItem.create({ data: { title: "列を追加する前の記事", url: "https://n/legacy", day: jstDay(NOW), feed: "top" } });
+    const { fetchedAt, items } = await listLatestNews(db);
+    expect(fetchedAt).not.toBeNull();
+    expect(items.map((n) => n.title)).toEqual(["列を追加する前の記事"]);
+    // 3時間たっていなければ集め直さない
+    expect(await refreshNews(db, { fetcher: fakeFetcher(), now: new Date(fetchedAt!.getTime() + HOUR) })).toEqual({ refreshed: false, reason: "fresh" });
+  });
+
   it("does not search with knowledge titles when the setting is off, and survives failed feeds", async () => {
     await createKnowledge(db, { title: "ラピダス", content: "" });
     await updateSettings(db, { newsKnowledgeSearch: false });
     const calls: string[] = [];
-    await ensureTodayNews(db, { fetcher: fakeFetcher(calls), now: NOW });
+    await refreshNews(db, { fetcher: fakeFetcher(calls), now: NOW });
     expect(calls.some((c) => c.includes("google"))).toBe(false);
     // すべて失敗したら何も作らず、次に開いたときにやり直す
     await resetDb();
-    expect(await ensureTodayNews(db, { fetcher: async () => null, now: NOW })).toBe(false);
+    expect(await refreshNews(db, { fetcher: async () => null, now: NOW })).toEqual({ refreshed: false, reason: "failed" });
     expect(await db.newsItem.count()).toBe(0);
   });
 
   it("saves news, links it to knowledge, creates knowledge from it, and drops old unsaved news", async () => {
     const dc = await createKnowledge(db, { title: "データセンター", content: "" });
-    await ensureTodayNews(db, { fetcher: fakeFetcher(), now: NOW });
-    const [first, second] = await listTodayNews(db, NOW);
+    await refreshNews(db, { fetcher: fakeFetcher(), now: NOW });
+    const [first, second] = await latest();
     await saveNews(db, first.id, { knowledgeIds: [dc.id], memo: "電力の話" });
     await saveNews(db, first.id, { knowledgeIds: [dc.id] });
     expect(await db.newsKnowledge.count()).toBe(1);
@@ -121,7 +169,7 @@ describe("today's news", () => {
 
     // 4日後：保存したものは残り、保存しなかったものは消える
     const later = new Date(NOW.getTime() + 4 * 86400_000);
-    await ensureTodayNews(db, { fetcher: async () => null, now: later });
+    await refreshNews(db, { fetcher: async () => null, now: later });
     const remaining = await db.newsItem.findMany({ where: { day: jstDay(NOW) } });
     expect(remaining.map((r) => r.id).sort()).toEqual([first.id, second.id].sort());
 
@@ -137,8 +185,8 @@ describe("news in backups", () => {
   it("exports saved news with knowledge links, restores them, and does not duplicate on re-import", async () => {
     const { exportJson, runImport, deleteAllData } = await import("@/server/services/backup");
     const dc = await createKnowledge(db, { title: "データセンター", content: "" });
-    await ensureTodayNews(db, { fetcher: fakeFetcher(), now: NOW });
-    const [first] = await listTodayNews(db, NOW);
+    await refreshNews(db, { fetcher: fakeFetcher(), now: NOW });
+    const [first] = await latest();
     await saveNews(db, first.id, { knowledgeIds: [dc.id], memo: "電力" });
     const json = JSON.stringify(await exportJson(db));
     const count = await db.newsItem.count();

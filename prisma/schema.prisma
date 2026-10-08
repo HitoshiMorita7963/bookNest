@@ -733,6 +733,8 @@ model NewsItem {
   publishedAt DateTime?
   /// 集めた日（日本時間の YYYY-MM-DD）
   day         String
+  /// 最後に集めた回の時刻（同じ回に集めたニュースは同じ値。null は列を追加する前に集めたもの）
+  fetchedAt   DateTime?
   /// 見出しから見つけた関係しそうな知識（候補）
   keyword     String?
   /// 保存した日時（null は未保存。未保存は数日で消える）
@@ -742,6 +744,7 @@ model NewsItem {
   knowledge   NewsKnowledge[]
 
   @@index([day])
+  @@index([fetchedAt])
   @@index([savedAt])
 }
 

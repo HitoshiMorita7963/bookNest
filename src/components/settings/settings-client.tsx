@@ -389,7 +389,7 @@ export function AiCard({ settings, configured, model, providerLabel }: { setting
               start(async () => {
                 const res = await updateSettingsAction({ newsKnowledgeSearch: c });
                 if (!res.ok) return void toast.error(res.error);
-                toast.success(c ? "知識に関係するニュースを探します（明日から反映）" : "主要ニュースだけを集めます（明日から反映）");
+                toast.success(c ? "知識に関係するニュースを探します（次の更新から反映）" : "主要ニュースだけを集めます（次の更新から反映）");
                 router.refresh();
               })
             }

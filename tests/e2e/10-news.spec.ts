@@ -9,15 +9,20 @@ test.afterAll(async () => {
   await db.$disconnect();
 });
 
-test("本日のニュース：保存して知識につなげる → 保存したニュース・知識の関連ニュースに表示", async ({ page }) => {
+test("最新のニュース：保存して知識につなげる → 保存したニュース・知識の関連ニュースに表示", async ({ page }) => {
   test.skip(process.env.E2E_MODE === "cloud", "ローカル DB に直接書き込むテスト");
   const knowledge = await db.knowledgeNote.create({ data: { title: "E2Eデータセンター", content: "" } });
   await db.newsItem.create({
-    data: { title: "E2Eデータセンター誘致で地方に投資", url: `https://example.com/e2e-news-${Date.now()}`, source: "E2E新聞", feed: "knowledge", day: jstDay(), keyword: "E2Eデータセンター", publishedAt: new Date() },
+    data: { title: "E2Eデータセンター誘致で地方に投資", url: `https://example.com/e2e-news-${Date.now()}`, source: "E2E新聞", feed: "knowledge", day: jstDay(), keyword: "E2Eデータセンター", publishedAt: new Date(), fetchedAt: new Date() },
   });
 
   await page.goto("/");
-  const section = page.getByRole("region", { name: /本日のニュース/ }).or(page.locator("section", { has: page.getByRole("heading", { name: "📰 本日のニュース" }) }));
+  const section = page.locator("section", { has: page.getByRole("heading", { name: /📰 最新のニュース/ }) });
+  await expect(section.getByText("E2Eデータセンター誘致で地方に投資")).toBeVisible();
+  // 集めた時刻と更新ボタン（E2E では外部に取りに行かないので「取得できませんでした」になり、一覧はそのまま）
+  await expect(section.getByText(/\d+:\d{2} 時点/)).toBeVisible();
+  await section.getByRole("button", { name: "ニュースを更新" }).click();
+  await expect(page.getByText("ニュースを取得できませんでした。しばらくしてからお試しください")).toBeVisible();
   await expect(section.getByText("E2Eデータセンター誘致で地方に投資")).toBeVisible();
   // 見出しから見つけた候補の知識
   await expect(section.getByText("🧠 E2Eデータセンター？")).toBeVisible();
