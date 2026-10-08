@@ -211,3 +211,74 @@ export async function pickKnowledge(db: Db, q: string) {
     take: 30,
   });
 }
+
+/* ---------------- 知識の統合 ---------------- */
+
+/**
+ * 複数の知識を1つにまとめる。from の内容は「■ タイトル」の見出しを付けて into の内容の後ろに足す（文章は失わない）。
+ * タグ・本・フレーズ・知識同士のつながり・創作への利用・創作知識の参考・保存したニュースは into に引き継ぎ、重複は作らない。
+ * 「ニュースで追う知識」に入っていれば into に置き換える。from は削除する。
+ */
+export async function mergeKnowledge(db: Db, intoId: string, fromIds: string[], opts: { title?: string; category?: string | null } = {}) {
+  const ids = [...new Set(fromIds)].filter((id) => id !== intoId);
+  if (!ids.length) throw new AppError("統合する知識を選んでください", "VALIDATION");
+  const [into, froms] = await Promise.all([db.knowledgeNote.findUnique({ where: { id: intoId } }), db.knowledgeNote.findMany({ where: { id: { in: ids } } })]);
+  if (!into || froms.length !== ids.length) throw new NotFoundError("知識");
+  const ordered = ids.map((id) => froms.find((f) => f.id === id)!);
+  const sections = ordered.filter((f) => f.content.trim()).map((f) => `――――\n■ ${f.title}\n${f.content.trim()}`);
+  const content = [into.content.trim(), ...sections].filter(Boolean).join("\n\n");
+  const title = opts.title?.trim() || into.title;
+
+  await db.$transaction(
+    async (tx) => {
+      await tx.knowledgeNote.update({ where: { id: intoId }, data: { title, content, ...(opts.category !== undefined ? { category: opts.category } : {}) } });
+      for (const fromId of ids) {
+        // タグ・本・フレーズ（中間テーブル）：into にないものだけ付け替える
+        for (const t of await tx.knowledgeTag.findMany({ where: { knowledgeId: fromId } })) {
+          await tx.knowledgeTag.upsert({ where: { knowledgeId_tagId: { knowledgeId: intoId, tagId: t.tagId } }, create: { knowledgeId: intoId, tagId: t.tagId }, update: {} });
+        }
+        for (const b of await tx.bookKnowledge.findMany({ where: { knowledgeId: fromId } })) {
+          await tx.bookKnowledge.upsert({ where: { bookId_knowledgeId: { bookId: b.bookId, knowledgeId: intoId } }, create: { bookId: b.bookId, knowledgeId: intoId }, update: {} });
+        }
+        for (const q of await tx.quoteKnowledge.findMany({ where: { knowledgeId: fromId } })) {
+          await tx.quoteKnowledge.upsert({ where: { quoteId_knowledgeId: { quoteId: q.quoteId, knowledgeId: intoId } }, create: { quoteId: q.quoteId, knowledgeId: intoId }, update: {} });
+        }
+        for (const n of await tx.newsKnowledge.findMany({ where: { knowledgeId: fromId } })) {
+          await tx.newsKnowledge.upsert({ where: { newsId_knowledgeId: { newsId: n.newsId, knowledgeId: intoId } }, create: { newsId: n.newsId, knowledgeId: intoId }, update: {} });
+        }
+        // 知識同士のつながり：統合する知識同士・自分自身へのつながりは作らない
+        const links = await tx.knowledgeLink.findMany({ where: { OR: [{ fromId }, { toId: fromId }] } });
+        for (const l of links) {
+          const other = l.fromId === fromId ? l.toId : l.fromId;
+          if (other === intoId || ids.includes(other)) continue;
+          const exists = await tx.knowledgeLink.count({ where: { OR: [{ fromId: intoId, toId: other }, { fromId: other, toId: intoId }] } });
+          if (!exists) await tx.knowledgeLink.create({ data: l.fromId === fromId ? { fromId: intoId, toId: other, label: l.label } : { fromId: other, toId: intoId, label: l.label } });
+        }
+        // 創作への利用・創作知識の参考（同じ相手への参考は重複させない）
+        await tx.creativeLink.updateMany({ where: { knowledgeId: fromId }, data: { knowledgeId: intoId } });
+        for (const r of await tx.creativeKnowledgeReference.findMany({ where: { knowledgeNoteId: fromId } })) {
+          const dup = await tx.creativeKnowledgeReference.count({ where: { knowledgeId: r.knowledgeId, knowledgeNoteId: intoId } });
+          if (dup) await tx.creativeKnowledgeReference.delete({ where: { id: r.id } });
+          else await tx.creativeKnowledgeReference.update({ where: { id: r.id }, data: { knowledgeNoteId: intoId } });
+        }
+        await tx.knowledgeNote.delete({ where: { id: fromId } });
+      }
+    },
+    { timeout: 120_000 },
+  );
+
+  // 「ニュースで追う知識」の付け替え（設定に保存しているので、トランザクションの外で）
+  const user = await db.user.findUnique({ where: { id: "me" }, select: { settings: true } });
+  if (user) {
+    try {
+      const s = JSON.parse(user.settings || "{}") as { newsInterestIds?: string[] };
+      if (s.newsInterestIds?.some((id) => ids.includes(id))) {
+        s.newsInterestIds = [...new Set(s.newsInterestIds.map((id) => (ids.includes(id) ? intoId : id)))];
+        await db.user.update({ where: { id: "me" }, data: { settings: JSON.stringify(s) } });
+      }
+    } catch {
+      // 設定が壊れていても統合自体は済んでいる
+    }
+  }
+  return db.knowledgeNote.findUniqueOrThrow({ where: { id: intoId } });
+}
