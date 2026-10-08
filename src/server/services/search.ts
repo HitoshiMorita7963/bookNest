@@ -54,7 +54,7 @@ export async function searchAll(db: Db, q: string, take = 20) {
     }),
     db.quote.findMany({
       where: quoteWhere,
-      include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true, authors: { include: { author: true } } } } },
+      include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true, authors: { include: { author: true } } } }, knowledge: { include: { knowledge: { select: { id: true, title: true } } } } },
       take,
       orderBy: { createdAt: "desc" },
     }),

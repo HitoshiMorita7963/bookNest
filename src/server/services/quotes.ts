@@ -11,6 +11,8 @@ import { deleteImageByUrl } from "./images";
 export const quoteInclude = {
   tags: { include: { tag: true } },
   book: { select: { id: true, title: true, coverImage: true, authors: { include: { author: true }, orderBy: { position: "asc" } } } },
+  // 一覧のカードに、つながっている知識を表示する
+  knowledge: { include: { knowledge: { select: { id: true, title: true } } } },
 } satisfies Prisma.QuoteInclude;
 
 export async function createQuote(db: Db, input: QuoteInput, opts: { isSample?: boolean } = {}) {

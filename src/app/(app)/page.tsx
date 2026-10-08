@@ -37,7 +37,7 @@ export default async function HomePage() {
     prisma.quote.findMany({
       orderBy: { createdAt: "desc" },
       take: 2,
-      include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true, authors: { include: { author: true } } } } },
+      include: { tags: { include: { tag: true } }, book: { select: { id: true, title: true, authors: { include: { author: true } } } }, knowledge: { include: { knowledge: { select: { id: true, title: true } } } } },
     }),
     prisma.book.findMany({ where: { status: "COMPLETED" }, include: bookListInclude, orderBy: { finishedAt: "desc" }, take: 12 }),
     prisma.book.findMany({ where: { status: "OWNED" }, include: bookListInclude, orderBy: [{ acquiredAt: "asc" }], take: 12 }),
