@@ -217,8 +217,8 @@ export async function buildSheets(db: Db): Promise<Sheet[]> {
     },
     {
       name: "創作知識",
-      headers: ["タイトル", "カテゴリ", "ほかのカテゴリ", "サブカテゴリ", "概要", "定義・説明", "物語上の効果", "主なパターン", "感情・展開の流れ", "使い方", "注意点", "別名", "タグ", "自分のメモ", "お気に入り", "作成元", "登録日", "更新日", "ID"],
-      widths: [22, 12, 16, 12, 40, 40, 30, 30, 24, 30, 30, 20, 16, 30, 8, 10, 16, 16, 26],
+      headers: ["タイトル", "カテゴリ", "ほかのカテゴリ", "サブカテゴリ", "概要", "定義・説明", "物語上の効果", "主なパターン", "感情・展開の流れ", "使い方", "注意点", "別名", "よみ", "作品例", "タグ", "自分のメモ", "お気に入り", "作成元", "登録日", "更新日", "ID"],
+      widths: [22, 12, 16, 12, 40, 40, 30, 30, 24, 30, 30, 20, 16, 40, 16, 30, 8, 10, 16, 16, 26],
       rows: cks.map((k) => [
         k.title,
         ckCategoryLabel(k.category),
@@ -232,6 +232,8 @@ export async function buildSheets(db: Db): Promise<Sheet[]> {
         k.usage || null,
         k.cautions || null,
         k.aliases || null,
+        k.reading || null,
+        k.examples || null,
         join(k.tags.map((t) => t.tag.name)),
         k.myNote || null,
         k.isFavorite ? "★" : null,

@@ -23,6 +23,8 @@ export interface CkFormValues {
   usage: string;
   cautions: string;
   aliases: string;
+  reading: string;
+  examples: string;
   tags: string;
 }
 
@@ -39,6 +41,8 @@ export const emptyCkForm: CkFormValues = {
   usage: "",
   cautions: "",
   aliases: "",
+  reading: "",
+  examples: "",
   tags: "",
 };
 
@@ -49,6 +53,7 @@ const LIST_FIELDS: { key: keyof CkFormValues; label: string; placeholder: string
   { key: "flow", label: "感情・展開の流れ", placeholder: "敵対\n疑念\n葛藤\n共闘\n信頼", rows: 4 },
   { key: "usage", label: "使い方", placeholder: "どんな場面で、どう使うと効果的か", rows: 3 },
   { key: "cautions", label: "注意点", placeholder: "簡単に仲間にすると、それまでの敵対関係が軽く見える", rows: 3 },
+  { key: "examples", label: "作品例", placeholder: "『作品名』（作者）：その作品でどう表れているか\n『桃太郎』（昔話）：犬・猿・きじが仲間になる", rows: 4 },
 ];
 
 export function CkForm({ id, initial }: { id?: string; initial?: Partial<CkFormValues> }) {
@@ -141,6 +146,9 @@ export function CkForm({ id, initial }: { id?: string; initial?: Partial<CkFormV
       <section className="space-y-4">
         <Field label="タグ" htmlFor="ck-tags" hint="「、」区切り（例：成長、裏切り、ファンタジー）">
           <Input id="ck-tags" value={v.tags} onChange={(e) => set("tags", e.target.value)} autoComplete="off" />
+        </Field>
+        <Field label="よみ" htmlFor="ck-reading" hint="ひらがな。物語要素事典の五十音索引に使います（例：てきからみかたへ）">
+          <Input id="ck-reading" value={v.reading} onChange={(e) => set("reading", e.target.value)} maxLength={120} autoComplete="off" />
         </Field>
         <Field label="別名・言い換え" htmlFor="ck-aliases" hint="1行に1つ。検索で見つけやすくなります（例：敵が仲間になる）">
           <Textarea id="ck-aliases" value={v.aliases} onChange={(e) => set("aliases", e.target.value)} rows={2} maxLength={2000} />

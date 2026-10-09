@@ -80,6 +80,17 @@ export default async function CreativeKnowledgePage({ searchParams }: { searchPa
       />
       <div className="space-y-5">
         {!filtered ? <p className="text-sm text-muted-foreground">物語の型・人物・感情・演出などの「創作の知識」を、読書で出会った具体例や自分の作品とつなげて蓄えます。</p> : null}
+        {!filtered ? (
+          <Link href="/creative/knowledge/dictionary" className="flex items-center gap-3 rounded-2xl border bg-card p-4 hover:bg-accent/40">
+            <span className="text-2xl" aria-hidden>
+              📖
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">物語要素事典</span>
+              <span className="block text-sm text-muted-foreground">五十音で引いて、定義と作品例を読む</span>
+            </span>
+          </Link>
+        ) : null}
         <SearchBox initial={sp.q ?? ""} placeholder="知識・別名・タグで検索（例：敵が仲間になる）" autoFocus={false} />
 
         {filtered ? (

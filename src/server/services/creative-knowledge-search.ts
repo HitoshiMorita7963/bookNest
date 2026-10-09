@@ -67,11 +67,12 @@ export async function searchCreativeKnowledge(
   const scored = new Map<string, { score: number; reason: string }>();
   for (const k of items) {
     const title = norm(k.title);
-    const aliases = lines(k.aliases).map(norm);
+    // よみ（ひらがな）も別名のように扱う
+    const aliases = [...lines(k.aliases), ...(k.reading ? [k.reading] : [])].map(norm);
     const tags = k.tags.map((t) => norm(t.tag.name));
     const cats = [k.category, ...k.categories.map((c) => c.category)].map((c) => norm(ckCategoryLabel(c)));
     const sub = norm(k.subCategory ?? "");
-    const body = norm([k.summary, k.definition, k.effects, k.patterns, k.flow, k.usage, k.cautions].join("\n"));
+    const body = norm([k.summary, k.definition, k.effects, k.patterns, k.flow, k.usage, k.cautions, k.examples].join("\n"));
     const refs = norm(k.references.map((r) => [r.comment, r.workTitle, r.location].filter(Boolean).join(" ")).join("\n"));
     const mine = norm(k.myNote);
 

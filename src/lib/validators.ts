@@ -273,6 +273,10 @@ export const creativeKnowledgeInputSchema = z
     usage: ckText(5000),
     cautions: ckText(5000),
     aliases: ckText(2000),
+    /** よみ（ひらがな。五十音索引に使う） */
+    reading: ckText(120),
+    /** 作品例（1行に1つ） */
+    examples: ckText(10000),
     tags: nameList,
   })
   .transform((v) => ({ ...v, extraCategories: Array.from(new Set(v.extraCategories.filter((c) => c !== v.category))) }));
