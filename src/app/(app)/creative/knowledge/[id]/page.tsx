@@ -15,7 +15,7 @@ import { CkMenu } from "@/components/creative-knowledge/ck-menu";
 import { CkFavoriteButton, CkMyNote } from "@/components/creative-knowledge/ck-personal";
 import { ReadMore } from "@/components/ui/read-more";
 import { CreativeUsageSection } from "@/components/creative/usage-section";
-import { CK_REFERENCE_ICON, CK_REFERENCE_LABEL, lines } from "@/lib/creative-knowledge";
+import { CK_REFERENCE_ICON, CK_REFERENCE_LABEL, lines, parseExample } from "@/lib/creative-knowledge";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,6 +37,24 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
   if (lines(k.flow).length) sections.push({ title: "🌊 感情・展開の流れ", node: <FlowChain text={k.flow} /> });
   if (lines(k.usage).length) sections.push({ title: "🛠 使い方", node: <ItemList text={k.usage} /> });
   if (lines(k.cautions).length) sections.push({ title: "⚠️ 注意点", node: <ItemList text={k.cautions} /> });
+  if (lines(k.examples).length) {
+    sections.push({
+      title: "📚 作品例",
+      node: (
+        <ul className="space-y-2" aria-label="作品例">
+          {lines(k.examples).map((line, i) => {
+            const { work, note } = parseExample(line);
+            return (
+              <li key={i} className="rounded-xl border bg-card px-3 py-2 text-[15px] leading-relaxed">
+                <span className="font-medium">{work}</span>
+                {note ? <span className="block text-sm text-muted-foreground">{note}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ),
+    });
+  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -56,6 +74,7 @@ export default async function CreativeKnowledgeDetailPage({ params }: { params: 
             ))}
           </div>
           <h2 className="text-2xl font-bold">{k.title}</h2>
+          {k.reading ? <p className="-mt-2 text-xs text-muted-foreground">{k.reading}</p> : null}
           {k.summary ? <p className="prose-note text-[16px] leading-relaxed">{k.summary}</p> : null}
           {k.tags.length ? (
             <div className="flex flex-wrap gap-1.5">

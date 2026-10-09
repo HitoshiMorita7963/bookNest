@@ -29,6 +29,8 @@ export default async function EditCreativeKnowledgePage({ params }: { params: Pr
           usage: k.usage,
           cautions: k.cautions,
           aliases: k.aliases,
+          reading: k.reading,
+          examples: k.examples,
           tags: k.tags.map((t) => t.tag.name).join("、"),
         }}
       />

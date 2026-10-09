@@ -611,6 +611,10 @@ model CreativeKnowledge {
   cautions    String   @default("")
   /// 別名・言い換え（検索用。例：敵が仲間になる）
   aliases     String   @default("")
+  /// よみ（ひらがな。事典の五十音索引に使う）
+  reading     String   @default("")
+  /// 作品例（1行に1つ。例：『竹取物語』：月から来たかぐや姫が月へ帰る）
+  examples    String   @default("")
   // STRUCTURE | PLOT | CHARACTER | EMOTION | SCENE | WORLD | GENRE | TROPE | MOTIF | EXPRESSION
   category    String
   subCategory String?

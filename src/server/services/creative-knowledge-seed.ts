@@ -7,6 +7,7 @@
 import type { Db } from "@/lib/db";
 import type { CreativeKnowledgeInput } from "@/lib/validators";
 import { CK_SEEDS, type CkSeed } from "@/server/data/creative-knowledge-seed";
+import { CK_DICTIONARY } from "@/server/data/ck-seed/dictionary";
 import { createCreativeKnowledge, updateCreativeKnowledge } from "./creative-knowledge";
 import { getSettings } from "./settings";
 
@@ -25,11 +26,13 @@ function toInput(s: CkSeed): CreativeKnowledgeInput {
     usage: join(s.usage),
     cautions: join(s.cautions),
     aliases: join(s.aliases),
+    reading: CK_DICTIONARY[s.slug]?.reading ?? "",
+    examples: join(CK_DICTIONARY[s.slug]?.examples),
     tags: s.tags ?? [],
   };
 }
 
-const FIELDS = ["title", "category", "subCategory", "summary", "definition", "effects", "patterns", "flow", "usage", "cautions", "aliases"] as const;
+const FIELDS = ["title", "category", "subCategory", "summary", "definition", "effects", "patterns", "flow", "usage", "cautions", "aliases", "reading", "examples"] as const;
 
 type Existing = Awaited<ReturnType<typeof loadExisting>>[number];
 async function loadExisting(db: Db) {

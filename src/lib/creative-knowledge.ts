@@ -122,3 +122,40 @@ export const CK_REFERENCE_KINDS = ["book", "quote", "session", "record", "knowle
 export type CkReferenceKind = (typeof CK_REFERENCE_KINDS)[number];
 export const CK_REFERENCE_LABEL: Record<CkReferenceKind, string> = { book: "本", quote: "フレーズ", session: "読書メモ", record: "感想", knowledgeNote: "知識" };
 export const CK_REFERENCE_ICON: Record<CkReferenceKind | "work", string> = { book: "📚", quote: "💬", session: "📝", record: "✍️", knowledgeNote: "🧠", work: "📖" };
+
+/* ---------------- 物語要素事典（五十音索引） ---------------- */
+
+export const KANA_ROWS = ["あ", "か", "さ", "た", "な", "は", "ま", "や", "ら", "わ"] as const;
+export type KanaRow = (typeof KANA_ROWS)[number] | "英数" | "他";
+const ROW_CHARS: Record<(typeof KANA_ROWS)[number], string> = {
+  あ: "あいうえお",
+  か: "かきくけこ",
+  さ: "さしすせそ",
+  た: "たちつてと",
+  な: "なにぬねの",
+  は: "はひふへほ",
+  ま: "まみむめも",
+  や: "やゆよ",
+  ら: "らりるれろ",
+  わ: "わをん",
+};
+const SMALL: Record<string, string> = { ぁ: "あ", ぃ: "い", ぅ: "う", ぇ: "え", ぉ: "お", っ: "つ", ゃ: "や", ゅ: "ゆ", ょ: "よ", ゎ: "わ" };
+
+/** よみの1文字目から五十音の行を求める（カタカナ・濁点・小書きの文字も扱う） */
+export function kanaRow(reading: string): KanaRow {
+  const s = reading.normalize("NFKC").trim();
+  if (!s) return "他";
+  if (/^[a-z0-9]/i.test(s)) return "英数";
+  let c = s[0];
+  if (c >= "ァ" && c <= "ヶ") c = String.fromCharCode(c.charCodeAt(0) - 0x60);
+  c = c.normalize("NFD").replace(/[\u3099\u309a]/g, "").normalize("NFC");
+  c = SMALL[c] ?? c;
+  for (const row of KANA_ROWS) if (ROW_CHARS[row].includes(c)) return row;
+  return "他";
+}
+
+/** 作品例の1行（「『作品』（作者）：説明」）を作品名と説明に分ける */
+export function parseExample(line: string): { work: string; note: string } {
+  const m = line.match(/^(.+?)[：:]\s*(.*)$/);
+  return m ? { work: m[1].trim(), note: m[2].trim() } : { work: line.trim(), note: "" };
+}
