@@ -3,12 +3,26 @@ import { expect, test, type Page } from "@playwright/test";
 
 /** 原稿の書き出し：章・シーンの本文 → 原稿ビュー（横書き・縦書き）→ PDF・Word・テキスト */
 
-async function submitSheet(page: Page, fields: Record<string, string>, advanced = false) {
+async function submitSheet(page: Page, fields: Record<string, string>) {
   const dialog = page.getByRole("dialog");
-  if (advanced) await dialog.getByRole("button", { name: "詳細項目も入力する" }).click();
   for (const [label, value] of Object.entries(fields)) await dialog.getByLabel(label, { exact: true }).fill(value);
   await dialog.getByRole("button", { name: "追加する" }).click();
   await expect(dialog).toHaveCount(0);
+}
+
+/** 目次の章に「＋ シーン」でシーンを足す → 執筆画面が開くので本文を書いて目次へ戻る */
+async function addScene(page: Page, chapter: string, title: string, body = "") {
+  // 「章・シーン」タブにも作品トップにも目次がある
+  const ch = page.getByRole("list", { name: "目次" }).locator(":scope > li").filter({ hasText: chapter });
+  await ch.getByRole("button", { name: "シーン" }).click();
+  await submitSheet(page, { "シーン名 *": title });
+  await expect(page).toHaveURL(/\/write\//);
+  if (body) {
+    await page.getByRole("textbox", { name: "本文" }).fill(body);
+    await expect(page.getByRole("status", { name: "本文：保存済み" })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "目次へ戻る" }).click();
+  await expect(page).toHaveURL(/\/creative\/projects\/c[a-z0-9]+$/);
 }
 
 test("原稿の書き出し：本文をまとめて表示し、PDF・Word・テキストで保存できる", async ({ page }) => {
@@ -17,6 +31,7 @@ test("原稿の書き出し：本文をまとめて表示し、PDF・Word・テ�
   await page.getByRole("button", { name: "作品を作る" }).click();
   await expect(page).toHaveURL(/\/creative\/projects\/c[a-z0-9]+$/);
   await page.getByRole("navigation", { name: "作品のメニュー" }).getByRole("link", { name: "📖 章・シーン" }).click();
+  await expect(page).toHaveURL(/\/chapters$/);
 
   // 章がないうちは書き出せない
   await expect(page.getByRole("link", { name: "書き出す" })).toHaveCount(0);
@@ -24,17 +39,11 @@ test("原稿の書き出し：本文をまとめて表示し、PDF・Word・テ�
     await page.getByRole("button", { name: "章", exact: true }).click();
     await submitSheet(page, { "章タイトル *": chapter });
   }
-  await page.getByRole("link", { name: /第1章.手紙/ }).click();
-  await page.getByRole("button", { name: "シーン", exact: true }).click();
-  await submitSheet(page, { "シーン名 *": "届いた封筒", "下書き（セリフ・描写など）": "　|郵便受《ゆうびんう》けに、《《一通》》の手紙が入っていた。\n　差出人の名前はない。" }, true);
-  // シーンを追加するとシーンの画面に移るので、章へ戻る
-  await expect(page.getByRole("heading", { name: /届いた封筒/ })).toBeVisible();
-  await page.getByRole("link", { name: /第1章.手紙/ }).click();
-  await page.getByRole("button", { name: "シーン", exact: true }).click();
-  await submitSheet(page, { "シーン名 *": "まだ書いていない" });
-  await expect(page.getByRole("heading", { name: /まだ書いていない/ })).toBeVisible();
+  await addScene(page, "第1章　手紙", "届いた封筒", "　|郵便受《ゆうびんう》けに、《《一通》》の手紙が入っていた。\n　差出人の名前はない。");
+  await addScene(page, "第1章　手紙", "まだ書いていない");
 
   await page.getByRole("navigation", { name: "作品のメニュー" }).getByRole("link", { name: "📖 章・シーン" }).click();
+  await expect(page).toHaveURL(/\/chapters$/);
   await page.getByRole("link", { name: "書き出す" }).click();
   await expect(page).toHaveURL(/\/print\/projects\//);
 

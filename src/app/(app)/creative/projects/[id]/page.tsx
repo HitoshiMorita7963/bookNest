@@ -4,6 +4,9 @@ import { format } from "date-fns";
 import { Bot, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getProject, projectReferences, projectTimeline } from "@/server/services/novels";
+import { projectToc } from "@/server/services/writing";
+import { ProjectToc, ResumeCard } from "@/components/writing/project-toc";
+import { ChapterSheetButton } from "@/components/creative/project-forms";
 import { SectionTitle } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
 import { DeleteProjectButton } from "@/components/creative/project-forms";
@@ -12,7 +15,7 @@ export const metadata = { title: "小説プロジェクト" };
 
 export default async function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [p, refs, timeline] = await Promise.all([getProject(prisma, id), projectReferences(prisma, id), projectTimeline(prisma, id)]);
+  const [p, refs, timeline, toc] = await Promise.all([getProject(prisma, id), projectReferences(prisma, id), projectTimeline(prisma, id), projectToc(prisma, id)]);
   if (!p) notFound();
   const base = `/creative/projects/${p.id}`;
   const influence = [
@@ -43,6 +46,18 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
             <ChevronRight className="size-4" />
           </Link>
         )}
+      </section>
+
+      {/* 作品のトップは「目次」：続きを書く → 章・シーンの一覧 */}
+      <section className="space-y-3">
+        <ResumeCard toc={toc} />
+        <SectionTitle action={<ChapterSheetButton projectId={p.id} />}>
+          📖 目次{" "}
+          <span className="text-sm font-normal text-muted-foreground">
+            {toc.totalChars.toLocaleString()}字・{toc.sceneCount}シーン
+          </span>
+        </SectionTitle>
+        <ProjectToc projectId={p.id} toc={toc} />
       </section>
 
       <section>

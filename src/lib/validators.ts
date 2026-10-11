@@ -170,7 +170,11 @@ import { CREATIVE_CATEGORIES, LINK_SOURCE_KINDS, LINK_TARGET_KINDS, NOTE_STATUSE
 const reqText = (label: string, max: number) => z.string().trim().min(1, `${label}を入力してください`).max(max, `${max}文字以内で入力してください`);
 const longText = (max: number) => optText(max);
 
-/** 小説の本文：行頭の字下げ（全角スペース）は残し、先頭の空行と末尾の空白だけを除く */
+/**
+ * 小説の本文：行頭の字下げ（全角スペース）は残し、先頭の空行と末尾の空白だけを除く。
+ * 項目そのものがない（undefined）ときは undefined のまま返し、保存済みの本文を消さない
+ * （本文は執筆画面で書くので、シーンの編集シートは本文を送らない）。
+ */
 const bodyText = (max: number) =>
   z
     .string()
@@ -178,7 +182,8 @@ const bodyText = (max: number) =>
     .optional()
     .nullable()
     .transform((v) => {
-      if (v == null || v.trim() === "") return null;
+      if (v === undefined) return undefined;
+      if (v === null || v.trim() === "") return null;
       return v.replace(/\r\n?/g, "\n").replace(/^(?:[ \t　]*\n)+/, "").trimEnd();
     });
 
@@ -257,6 +262,9 @@ export const sceneInputSchema = z.object({
   status: z.enum(SCENE_STATUSES).default("IDEA"),
 });
 export type SceneInput = z.input<typeof sceneInputSchema>;
+
+/** 執筆画面の自動保存：本文だけ */
+export const sceneContentSchema = z.object({ content: bodyText(200000) });
 
 export const linkInputSchema = z.object({
   source: z.object({ kind: z.enum(LINK_SOURCE_KINDS), id: z.string().min(1).max(50) }),

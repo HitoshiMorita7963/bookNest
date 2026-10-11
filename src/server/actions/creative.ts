@@ -6,6 +6,7 @@ import { toUserError, type ActionResult } from "@/lib/errors";
 import type { ChapterInput, CharacterInput, CreativeNoteInput, LinkInput, PlotInput, ProjectInput, SceneInput, WorldInput } from "@/lib/validators";
 import * as creative from "@/server/services/creative";
 import * as novels from "@/server/services/novels";
+import * as writing from "@/server/services/writing";
 import { syncSheetLater } from "@/server/sheets-sync";
 
 function done<T>(data: T): ActionResult<T> {
@@ -124,6 +125,29 @@ export async function deleteChapterAction(id: string) {
 }
 export async function saveSceneAction(chapterId: string, id: string | null, input: SceneInput) {
   return run(async () => ({ id: (id ? await novels.updateScene(prisma, id, input) : await novels.createScene(prisma, chapterId, input)).id }));
+}
+/**
+ * 執筆画面の自動保存。数秒ごとに呼ばれるので、アプリ全体ではなく、このシーンの執筆画面と作品の画面だけを無効化する
+ * （画面は30秒間再利用されるため、前後のシーンから戻ったときに古い本文・文字数を表示しないように）。
+ */
+export async function saveSceneContentAction(id: string, content: string, baseUpdatedAt: string | null, force = false): Promise<ActionResult<writing.SaveSceneResult>> {
+  try {
+    const data = await writing.saveSceneContent(prisma, id, { content, baseUpdatedAt, force });
+    if (data.ok) {
+      revalidatePath(`/write/${id}`);
+      // 目次の文字数（作品トップ・章・シーン）
+      revalidatePath("/creative/projects", "layout");
+    }
+    return { ok: true, data };
+  } catch (e) {
+    return toUserError(e);
+  }
+}
+export async function setSceneStatusAction(id: string, status: string) {
+  return run(async () => {
+    const s = await writing.setSceneStatus(prisma, id, status);
+    return { updatedAt: s.updatedAt.toISOString() };
+  });
 }
 export async function deleteSceneAction(id: string) {
   return run(() => novels.deleteScene(prisma, id));

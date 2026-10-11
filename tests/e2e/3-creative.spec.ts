@@ -43,6 +43,10 @@ test("テスト5：作品 → 人物 → 章 → シーン", async ({ page }) =>
   // シーン
   await page.getByRole("button", { name: "シーン" }).click();
   await fillSheetAndSubmit(page, { "シーン名 *": "灯台での再会" });
+  // 追加すると執筆画面が開く。名前・概要・参考資料はシーンの設定から
+  await expect(page).toHaveURL(/\/write\/c[a-z0-9]+$/);
+  await expect(page.getByRole("heading", { name: "灯台での再会" })).toBeVisible();
+  await page.getByRole("button", { name: "シーンの設定・参考資料" }).click();
   await expect(page).toHaveURL(/\/scenes\/c[a-z0-9]+$/);
   await expect(page.getByRole("heading", { name: "🎬 灯台での再会" })).toBeVisible();
   await expect(page.getByRole("link", { name: /第3章.再会/ })).toBeVisible();
