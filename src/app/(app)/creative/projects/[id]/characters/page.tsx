@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { EmptyState, SectionTitle } from "@/components/books/bits";
 import { CharacterSheetButton, DeleteItemButton, MoveButtons, RelationshipSheetButton } from "@/components/creative/project-forms";
+import { CharacterMapClient as CharacterMap } from "@/components/creative/character-map-client";
 
 export const metadata = { title: "人物" };
 
@@ -39,6 +40,17 @@ export default async function CharactersPage({ params }: { params: Promise<{ id:
           </ul>
         )}
       </section>
+
+      {rels.length ? (
+        <section>
+          <SectionTitle>🗺 相関図</SectionTitle>
+          <CharacterMap
+            projectId={id}
+            characters={chars.map((c) => ({ id: c.id, name: c.name, role: c.role }))}
+            relations={rels.map((r) => ({ id: r.id, fromId: r.from.id, toId: r.to.id, label: r.label, notes: r.notes }))}
+          />
+        </section>
+      ) : null}
 
       <section>
         <SectionTitle action={<RelationshipSheetButton projectId={id} characters={chars.map((c) => ({ id: c.id, name: c.name }))} />}>🔗 人物の関係</SectionTitle>
