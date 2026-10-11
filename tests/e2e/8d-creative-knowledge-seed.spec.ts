@@ -5,7 +5,8 @@ test("創作知識：基本の創作知識を読み込む → カテゴリ・詳
   const card = page.getByRole("region", { name: "基本の創作知識" });
   await expect(card).toBeVisible();
   await card.getByRole("button", { name: /追加する/ }).click();
-  await expect(page.getByText(/件を追加しました/)).toBeVisible();
+  // 231件をまとめて書き込むため、テスト環境では15秒を超えることがある
+  await expect(page.getByText(/件を追加しました/)).toBeVisible({ timeout: 60_000 });
   // 読み込み後はカードが消える（2回目に重複しない）
   await expect(card).toHaveCount(0);
 
