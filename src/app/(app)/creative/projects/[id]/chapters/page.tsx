@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { FileDown } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { EmptyState, SectionTitle } from "@/components/books/bits";
 import { ChapterSheetButton, MoveButtons } from "@/components/creative/project-forms";
 import { SceneStatusBadge } from "@/components/creative/bits";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "章・シーン" };
 
@@ -15,7 +17,22 @@ export default async function ChaptersPage({ params }: { params: Promise<{ id: s
   });
   return (
     <section>
-      <SectionTitle action={<ChapterSheetButton projectId={id} />}>📖 章・シーン</SectionTitle>
+      <SectionTitle
+        action={
+          <div className="flex gap-2">
+            {chapters.length ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/print/projects/${id}`}>
+                  <FileDown /> 書き出す
+                </Link>
+              </Button>
+            ) : null}
+            <ChapterSheetButton projectId={id} />
+          </div>
+        }
+      >
+        📖 章・シーン
+      </SectionTitle>
       {chapters.length === 0 ? (
         <EmptyState icon="📖" title="まだ章がありません" description="「第1章　出会い」のように章を作り、その中にシーンを並べていきます。" />
       ) : (
