@@ -192,9 +192,9 @@ const SCENE_FIELDS: FieldDef[] = [
   { name: "title", label: "シーン名", required: true, placeholder: "灯台での再会 など" },
   { name: "status", label: "状態", type: "select", options: STATUS_OPTIONS },
   { name: "summary", label: "概要", type: "textarea", rows: 4 },
-  { name: "content", label: "下書き（セリフ・描写など）", type: "textarea", rows: 10, advanced: true },
 ];
-export function SceneSheetButton({ chapterId, scene, projectId }: { chapterId: string; scene?: Values & { id: string }; projectId?: string }) {
+/** シーンの名前・状態・概要の追加と編集（本文は執筆画面で書く）。追加したら執筆画面を開く */
+export function SceneSheetButton({ chapterId, scene, projectId, quiet }: { chapterId: string; scene?: Values & { id: string }; projectId?: string; quiet?: boolean }) {
   return (
     <EntitySheetButton
       title={scene ? "シーンを編集" : "シーンを追加"}
@@ -204,7 +204,8 @@ export function SceneSheetButton({ chapterId, scene, projectId }: { chapterId: s
       initial={scene}
       onSubmit={(v) => saveSceneAction(chapterId, scene?.id ?? null, v as never)}
       successMessage={scene ? "シーンを更新しました" : "🎬 シーンを追加しました"}
-      navigateTo={!scene && projectId ? (d) => `/creative/projects/${projectId}/scenes/${idOf(d)}` : undefined}
+      navigateTo={!scene && projectId ? (d) => `/write/${idOf(d)}` : undefined}
+      quiet={quiet}
     />
   );
 }

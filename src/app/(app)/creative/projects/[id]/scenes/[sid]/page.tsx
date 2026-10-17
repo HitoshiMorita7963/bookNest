@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, PenLine } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getScene } from "@/server/services/novels";
 import { describeSource } from "@/server/services/creative";
@@ -10,6 +10,8 @@ import { SceneStatusBadge } from "@/components/creative/bits";
 import { LinkList } from "@/components/creative/note-client";
 import { AddReferenceButton } from "@/components/creative/reference-picker";
 import { LINK_SOURCE_ICON } from "@/lib/constants";
+import { countChars } from "@/lib/manuscript";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "シーン" };
 const ICON = LINK_SOURCE_ICON;
@@ -32,19 +34,24 @@ export default async function ScenePage({ params }: { params: Promise<{ id: stri
           <h2 className="text-xl font-bold">🎬 {s.title}</h2>
           <SceneStatusBadge status={s.status} />
         </div>
-        <SceneSheetButton chapterId={s.chapter.id} scene={{ id: s.id, title: s.title, status: s.status, summary: s.summary ?? "", content: s.content ?? "" }} />
+        <SceneSheetButton chapterId={s.chapter.id} scene={{ id: s.id, title: s.title, status: s.status, summary: s.summary ?? "" }} />
         <DeleteItemButton kind="scene" id={s.id} label={`シーン「${s.title}」`} redirectTo={`/creative/projects/${id}/chapters/${s.chapter.id}`} />
       </header>
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-muted-foreground">概要</h3>
         {s.summary ? <p className="prose-note rounded-xl border bg-card p-3 text-[15px]">{s.summary}</p> : <p className="text-sm text-muted-foreground">鉛筆ボタンから、このシーンで起きることを書きましょう。</p>}
       </section>
-      {s.content ? (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">下書き（セリフ・描写）</h3>
-          <div className="quote-text rounded-xl border bg-card p-4 text-[16px]">{s.content}</div>
-        </section>
-      ) : null}
+      <section className="space-y-2">
+        <div className="flex items-center gap-2">
+          <h3 className="flex-1 text-sm font-semibold text-muted-foreground">本文 {s.content ? <span className="font-normal">{countChars(s.content).toLocaleString()}字</span> : null}</h3>
+          <Button asChild size="sm">
+            <Link href={`/write/${s.id}`}>
+              <PenLine /> {s.content ? "続きを書く" : "本文を書く"}
+            </Link>
+          </Button>
+        </div>
+        {s.content ? <div className="quote-text line-clamp-[12] rounded-xl border bg-card p-4 text-[16px] whitespace-pre-wrap">{s.content}</div> : null}
+      </section>
       <section>
         <SectionTitle action={<AddReferenceButton projectId={id} fixedTarget={{ kind: "scene", id: s.id, label: s.title }} />}>📚 このシーンの参考資料</SectionTitle>
         <LinkList items={materials} empty="情景描写や会話の参考にした本・フレーズ・知識・創作メモを関連付けましょう。" />

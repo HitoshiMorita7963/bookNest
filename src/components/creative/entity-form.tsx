@@ -112,6 +112,7 @@ export function EntitySheetButton({
   buttonLabel,
   successMessage,
   navigateTo,
+  quiet,
 }: {
   title: string;
   fields: FieldDef[];
@@ -122,13 +123,15 @@ export function EntitySheetButton({
   successMessage: string;
   /** 保存後に移動する先（作成した ID を受け取る） */
   navigateTo?: (data: unknown) => string | null;
+  /** 一覧の中に並べるとき用の控えめな追加ボタン */
+  quiet?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   return (
     <>
       {mode === "create" ? (
-        <Button size="sm" onClick={() => setOpen(true)}>
+        <Button size="sm" variant={quiet ? "ghost" : "default"} className={quiet ? "text-primary" : undefined} onClick={() => setOpen(true)}>
           <Plus /> {buttonLabel ?? "追加"}
         </Button>
       ) : (
