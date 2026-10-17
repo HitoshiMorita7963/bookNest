@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/form-controls";
 import { Dialog, DialogContent, Sheet, SheetContent } from "@/components/ui/overlays";
 import type { ActionResult } from "@/lib/errors";
-import { cn } from "@/lib/utils";
+import { SuggestionPicker } from "./suggestion-picker";
 
 export interface FieldDef {
   name: string;
@@ -17,7 +17,7 @@ export interface FieldDef {
   options?: readonly { value: string; label: string }[];
   /** 入力候補（datalist） */
   suggestions?: readonly string[];
-  /** 分類つきの入力候補。入力欄の下にタップで選べるボタンとして並べる（自由入力もできる） */
+  /** 分類つきの入力候補。入力欄の下に、分類を切り替えて選べるボタンとして並べる（自由入力もできる） */
   suggestionGroups?: readonly { label: string; items: readonly string[] }[];
   required?: boolean;
   placeholder?: string;
@@ -87,33 +87,7 @@ export function EntityForm({
                     ))}
                   </datalist>
                 ) : null}
-                {f.suggestionGroups ? (
-                  <div className="mt-2 space-y-2" role="group" aria-label={`${f.label}の候補`}>
-                    {f.suggestionGroups
-                      .filter((g) => g.items.length)
-                      .map((g) => (
-                        <div key={g.label}>
-                          <p className="mb-1 text-xs text-muted-foreground">{g.label}</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {g.items.map((s) => {
-                              const on = v[f.name] === s;
-                              return (
-                                <button
-                                  key={s}
-                                  type="button"
-                                  aria-pressed={on}
-                                  onClick={() => setV({ ...v, [f.name]: s })}
-                                  className={cn("min-h-8 rounded-full border px-2.5 text-sm", on ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent")}
-                                >
-                                  {s}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                ) : null}
+                {f.suggestionGroups ? <SuggestionPicker label={f.label} groups={f.suggestionGroups} value={v[f.name] ?? ""} onPick={(s) => setV({ ...v, [f.name]: s })} /> : null}
               </>
             )}
           </Field>

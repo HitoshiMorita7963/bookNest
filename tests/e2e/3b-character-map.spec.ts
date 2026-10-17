@@ -11,11 +11,12 @@ async function addCharacter(page: Page, name: string, role: string) {
   await expect(page.getByRole("link", { name: new RegExp(name) }).first()).toBeVisible();
 }
 
-async function addRelation(page: Page, from: string, to: string, label: string, notes = "") {
+async function addRelation(page: Page, from: string, to: string, label: string, notes = "", tab = "") {
   await page.getByRole("button", { name: "関係", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("人物", { exact: true }).selectOption({ label: from });
-  // 候補にあれば候補のボタンで選ぶ（分類ごとに並ぶ）、なければ自由入力
+  // 候補の分類を切り替えて選ぶ（分類ごとに候補が出る）。候補にないものは自由入力
+  if (tab) await dialog.getByRole("tablist", { name: "関係の分類" }).getByRole("tab", { name: tab }).click();
   const chip = dialog.getByRole("group", { name: "関係の候補" }).getByRole("button", { name: label, exact: true });
   if (await chip.count()) {
     await chip.first().click();
@@ -40,7 +41,7 @@ test("人物相関図：関係を登録 → 相関図に人物と関係 → タ�
   await expect(page.getByRole("heading", { name: /相関図/ })).toHaveCount(0);
 
   await addRelation(page, "ソラ", "ナギ", "片思い", "春の駅で出会ってから");
-  await addRelation(page, "ナギ", "ソラ", "幼馴染");
+  await addRelation(page, "ナギ", "ソラ", "幼馴染", "", "友情・仲間");
   // 候補にない関係は自由に入力できる
   await addRelation(page, "ソラ", "ナギ", "春の駅の約束");
 
