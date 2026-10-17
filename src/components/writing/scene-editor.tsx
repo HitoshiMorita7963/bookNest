@@ -90,6 +90,7 @@ const TOOLS: { label: string; title: string; run: (el: HTMLTextAreaElement) => v
   { label: "ルビ", title: "ルビ：|漢字《かんじ》", run: (el) => (el.selectionStart === el.selectionEnd ? wrapSelection(el, "《", "》") : wrapSelection(el, "|", "《》", 1)) },
   { label: "傍点", title: "傍点：《《強調》》", run: (el) => wrapSelection(el, "《《", "》》") },
   { label: "「」", title: "かぎかっこ", run: (el) => wrapSelection(el, "「", "」") },
+  { label: "『』", title: "二重かぎかっこ（作品名・会話の中の会話など）", run: (el) => wrapSelection(el, "『", "』") },
   { label: "字下げ", title: "行の頭に全角スペース", run: indentLine },
   { label: "……", title: "三点リーダー2つ", run: (el) => wrapSelection(el, "……") },
   { label: "――", title: "ダッシュ2つ", run: (el) => wrapSelection(el, "――") },

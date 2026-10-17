@@ -110,14 +110,14 @@ export function CharacterSheetButton({ projectId, character }: { projectId: stri
 export function RelationshipSheetButton({ projectId, characters, usedLabels = [] }: { projectId: string; characters: { id: string; name: string }[]; usedLabels?: string[] }) {
   if (characters.length < 2) return null;
   const options = characters.map((c) => ({ value: c.id, label: c.name }));
-  const groups = [{ label: "この作品で使った関係", items: usedLabels }, ...RELATIONSHIP_SUGGESTIONS];
+  const groups = [{ label: "この作品", items: usedLabels }, ...RELATIONSHIP_SUGGESTIONS];
   return (
     <EntitySheetButton
       title="人物の関係を追加"
       buttonLabel="関係"
       fields={[
         { name: "fromId", label: "人物", type: "select", options },
-        { name: "label", label: "関係", required: true, suggestionGroups: groups, placeholder: "下の候補から選ぶか、自由に入力" },
+        { name: "label", label: "関係", required: true, suggestionGroups: groups, placeholder: "候補から選ぶか、自由に入力" },
         { name: "toId", label: "相手", type: "select", options: [...options.slice(1), options[0]] },
         { name: "notes", label: "メモ", type: "textarea", rows: 2 },
       ]}
