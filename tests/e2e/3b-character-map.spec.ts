@@ -15,7 +15,12 @@ async function addRelation(page: Page, from: string, to: string, label: string, 
   await page.getByRole("button", { name: "関係", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("人物", { exact: true }).selectOption({ label: from });
-  await dialog.getByLabel(/^関係/).fill(label);
+  // 候補にあれば候補のボタンで選ぶ（分類ごとに並ぶ）、なければ自由入力
+  const chip = dialog.getByRole("group", { name: "関係の候補" }).getByRole("button", { name: label, exact: true });
+  if (await chip.count()) {
+    await chip.first().click();
+    await expect(dialog.getByLabel("関係 *", { exact: true })).toHaveValue(label);
+  } else await dialog.getByLabel("関係 *", { exact: true }).fill(label);
   await dialog.getByLabel("相手", { exact: true }).selectOption({ label: to });
   if (notes) await dialog.getByLabel("メモ", { exact: true }).fill(notes);
   await dialog.getByRole("button", { name: "追加する" }).click();
@@ -36,13 +41,15 @@ test("人物相関図：関係を登録 → 相関図に人物と関係 → タ�
 
   await addRelation(page, "ソラ", "ナギ", "片思い", "春の駅で出会ってから");
   await addRelation(page, "ナギ", "ソラ", "幼馴染");
+  // 候補にない関係は自由に入力できる
+  await addRelation(page, "ソラ", "ナギ", "春の駅の約束");
 
-  const map = page.getByRole("img", { name: "人物相関図（2人・2件の関係）" });
+  const map = page.getByRole("img", { name: "人物相関図（2人・3件の関係）" });
   await expect(map).toBeVisible();
   await expect(map.getByRole("button", { name: "ソラ（主人公）" })).toBeVisible();
 
   // 関係をタップ → だれからだれへ、とメモ
-  await map.getByRole("button", { name: "ソラ → ナギ：片思い" }).dispatchEvent("pointerup");
+  await map.getByRole("button", { name: "ソラ → ナギ：片思い・春の駅の約束" }).dispatchEvent("pointerup");
   const detail = page.getByRole("region", { name: "関係の詳細" });
   await expect(detail).toContainText("片思い");
   await expect(detail).toContainText("春の駅で出会ってから");
