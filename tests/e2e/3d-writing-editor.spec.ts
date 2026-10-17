@@ -43,6 +43,16 @@ test("執筆画面：目次からシーンを書き、自動保存して、続�
   await expect(body).toHaveValue("　|灯台《とうだい》の灯りが、海を照らしていた。");
   await saved(page);
 
+  // 『』：選んだ語を囲む。囲んだら元に戻して続ける
+  await body.evaluate((el: HTMLTextAreaElement) => {
+    const i = el.value.indexOf("海");
+    el.setSelectionRange(i, i + 1);
+  });
+  await page.getByRole("button", { name: "『』" }).click();
+  await expect(body).toHaveValue("　|灯台《とうだい》の灯りが、『海』を照らしていた。");
+  await body.fill("　|灯台《とうだい》の灯りが、海を照らしていた。");
+  await saved(page);
+
   // 再読み込みしても残っている
   await page.reload();
   await expect(page.getByRole("textbox", { name: "本文" })).toHaveValue("　|灯台《とうだい》の灯りが、海を照らしていた。");
