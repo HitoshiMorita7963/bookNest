@@ -39,6 +39,8 @@ test("テスト5：作品 → 人物 → 章 → シーン", async ({ page }) =>
   await page.getByRole("button", { name: "章" }).click();
   await fillSheetAndSubmit(page, { "章タイトル *": "第3章　再会" });
   await page.getByRole("link", { name: /第3章.再会/ }).click();
+  // 目次にも「＋ シーン」があるので、章の画面に移ってから押す
+  await expect(page).toHaveURL(/\/chapters\/c[a-z0-9]+$/);
 
   // シーン
   await page.getByRole("button", { name: "シーン" }).click();
