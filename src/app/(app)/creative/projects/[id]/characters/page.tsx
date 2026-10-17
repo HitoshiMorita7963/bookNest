@@ -53,7 +53,7 @@ export default async function CharactersPage({ params }: { params: Promise<{ id:
       ) : null}
 
       <section>
-        <SectionTitle action={<RelationshipSheetButton projectId={id} characters={chars.map((c) => ({ id: c.id, name: c.name }))} />}>🔗 人物の関係</SectionTitle>
+        <SectionTitle action={<RelationshipSheetButton projectId={id} characters={chars.map((c) => ({ id: c.id, name: c.name }))} usedLabels={[...new Set(rels.map((r) => r.label))]} />}>🔗 人物の関係</SectionTitle>
         {rels.length === 0 ? (
           <p className="rounded-xl border border-dashed p-3 text-sm text-muted-foreground">{chars.length < 2 ? "人物を2人以上追加すると、関係を登録できます。" : "「関係」から、恋愛・ライバル・幼馴染などの関係を登録できます。"}</p>
         ) : (
