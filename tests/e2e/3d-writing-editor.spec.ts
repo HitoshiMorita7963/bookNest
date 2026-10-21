@@ -57,6 +57,18 @@ test("執筆画面：目次からシーンを書き、自動保存して、続�
   await page.reload();
   await expect(page.getByRole("textbox", { name: "本文" })).toHaveValue("　|灯台《とうだい》の灯りが、海を照らしていた。");
 
+  // AI：カーソル位置なら「続きを書く」、文を選んでいれば「書き直す」。この環境では AI が未設定なので、使えない理由と設定への案内が出る
+  await page.getByRole("button", { name: "AI" }).click();
+  const panel = page.getByRole("region", { name: "AIで続きを書く" });
+  await expect(panel).toContainText("AIは使えません");
+  await expect(panel.getByRole("link", { name: "設定" })).toHaveAttribute("href", "/settings");
+  await panel.getByRole("button", { name: "AIパネルを閉じる" }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("textbox", { name: "本文" }).evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(1, 5));
+  await page.getByRole("button", { name: "AI" }).click();
+  await expect(page.getByRole("region", { name: "AIで書き直す" })).toContainText("選んだ文を書き直す（4字）");
+  await page.getByRole("button", { name: "AIパネルを閉じる" }).click();
+
   // プレビューではルビになる
   await page.getByRole("button", { name: "プレビュー" }).click();
   await expect(page.getByRole("article", { name: "プレビュー" }).locator("ruby rt")).toHaveText("とうだい");

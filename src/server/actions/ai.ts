@@ -6,6 +6,7 @@ import { toUserError, type ActionResult } from "@/lib/errors";
 import { aiAvailable, askLibrarian } from "@/server/ai/librarian";
 import { analyzeQuote, organizeNotes, summarizeTrends, type OrganizedNotes, type QuoteAnalysisResult } from "@/server/ai/features";
 import { aiErrorMessage } from "@/server/ai/provider";
+import { continueScene, rewriteSceneText, type ContinueLength, type RewriteMode } from "@/server/ai/writer";
 import type { InsightPeriod } from "@/server/services/insights";
 
 async function guard(): Promise<ActionResult<never> | null> {
@@ -109,5 +110,32 @@ export async function applyProposalAction(projectId: string, proposal: Proposal)
     return { ok: true, data: r };
   } catch (e) {
     return toUserError(e);
+  }
+}
+
+/* ---------- 執筆画面：続きを書く・選んだ文の書き直し（案を返すだけで、本文には書き込まない） ---------- */
+
+export async function continueSceneAction(sceneId: string, input: { before: string; after: string; length: ContinueLength; instruction?: string }): Promise<ActionResult<{ text: string }>> {
+  const g = await guard();
+  if (g) return g;
+  try {
+    return { ok: true, data: await continueScene(prisma, sceneId, input) };
+  } catch (e) {
+    const u = toUserError(e);
+    return u.code === "INTERNAL" ? { ok: false, error: aiErrorMessage(e) } : u;
+  }
+}
+
+export async function rewriteSceneTextAction(
+  sceneId: string,
+  input: { selected: string; before: string; after: string; mode: RewriteMode; instruction?: string },
+): Promise<ActionResult<{ text: string }>> {
+  const g = await guard();
+  if (g) return g;
+  try {
+    return { ok: true, data: await rewriteSceneText(prisma, sceneId, input) };
+  } catch (e) {
+    const u = toUserError(e);
+    return u.code === "INTERNAL" ? { ok: false, error: aiErrorMessage(e) } : u;
   }
 }

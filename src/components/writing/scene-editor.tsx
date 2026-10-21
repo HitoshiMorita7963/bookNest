@@ -4,7 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, CloudOff, Eye, Loader2, PenLine, Settings2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, CloudOff, Eye, Loader2, PenLine, Settings2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/form-controls";
 import { ManuscriptBody } from "@/components/manuscript/manuscript-body";
@@ -13,6 +13,7 @@ import { SCENE_STATUSES, SCENE_STATUS_LABEL, type SceneStatus } from "@/lib/cons
 import { countChars } from "@/lib/manuscript";
 import { cn } from "@/lib/utils";
 import { saveSceneContentAction, setSceneStatusAction } from "@/server/actions/creative";
+import { AiAssist, type AiInfo, type AiRequest } from "./ai-assist";
 
 interface Neighbor {
   id: string;
@@ -25,6 +26,7 @@ export interface SceneEditorProps {
   project: { id: string; title: string };
   prev: Neighbor | null;
   next: Neighbor | null;
+  ai: AiInfo;
 }
 
 type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
@@ -96,7 +98,7 @@ const TOOLS: { label: string; title: string; run: (el: HTMLTextAreaElement) => v
   { label: "――", title: "ダッシュ2つ", run: (el) => wrapSelection(el, "――") },
 ];
 
-export function SceneEditor({ scene, chapter, project, prev, next }: SceneEditorProps) {
+export function SceneEditor({ scene, chapter, project, prev, next, ai }: SceneEditorProps) {
   const router = useRouter();
   const [content, setContent] = useState(scene.content);
   const [status, setStatus] = useState(scene.status);
@@ -105,6 +107,7 @@ export function SceneEditor({ scene, chapter, project, prev, next }: SceneEditor
   const [vertical, setVertical] = useState(false);
   const [conflict, setConflict] = useState<{ content: string; updatedAt: string } | null>(null);
   // 前回この端末で保存しきれなかった下書きがあれば知らせる（ブラウザだけで描画するので localStorage を直接読める）
+  const [aiRequest, setAiRequest] = useState<AiRequest | null>(null);
   const [draft, setDraft] = useState<{ content: string; at: number } | null>(() => {
     const d = readDraft(scene.id);
     return d && d.content !== scene.content ? d : null;
@@ -207,6 +210,40 @@ export function SceneEditor({ scene, chapter, project, prev, next }: SceneEditor
   }, [flush]);
 
   /** 保存してから移動する。保存できなければ移動しない */
+  /** AI パネルを開く：いまのカーソル位置・選択範囲を覚えておく（選択があれば書き直し、なければ続き） */
+  function openAi() {
+    const el = area.current;
+    if (!el) return;
+    setAiRequest({ start: el.selectionStart, end: el.selectionEnd, value: el.value });
+  }
+
+  /** AI の案を本文に入れる。execCommand を使うので「元に戻す」で取り消せる */
+  function applyAi(text: string) {
+    const el = area.current;
+    const req = aiRequest;
+    if (!el || !req) return;
+    let start = req.start;
+    let end = req.end;
+    // 案を作っているあいだに本文を直していたら、位置を探し直す
+    if (el.value !== req.value) {
+      if (end > start) {
+        const i = el.value.indexOf(req.value.slice(start, end));
+        if (i < 0) return void toast.error("書き直す文が見つかりません。もう一度選んでからお試しください");
+        [start, end] = [i, i + (end - start)];
+      } else start = end = Math.min(start, el.value.length);
+    }
+    // 続きの案が段落・会話で始まるときは、前の文の途中につながらないよう改行を入れる
+    const head = end === start && start > 0 && el.value[start - 1] !== "\n" && /^[　「『（]/.test(text) ? "\n" : "";
+    el.focus();
+    el.setSelectionRange(start, end);
+    if (!document.execCommand?.("insertText", false, head + text)) {
+      el.setRangeText(head + text, start, end, "end");
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    setAiRequest(null);
+    toast.success(end > start ? "書き直しました" : "続きを挿入しました");
+  }
+
   async function go(href: string) {
     if (await flush()) router.push(href);
     else toast.error("本文を保存できませんでした。通信状態を確かめて、もう一度お試しください");
@@ -267,6 +304,18 @@ export function SceneEditor({ scene, chapter, project, prev, next }: SceneEditor
               <Eye className="size-3.5" /> プレビュー
             </button>
           </div>
+          {mode === "write" ? (
+            <button
+              type="button"
+              title="AIに続きを書いてもらう（文を選んでいれば書き直し）"
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={openAi}
+              aria-expanded={!!aiRequest}
+              className={cn("flex h-8 shrink-0 items-center gap-1 rounded-lg border px-2.5 text-sm", aiRequest ? "border-primary bg-primary text-primary-foreground" : "border-primary/40 bg-primary/5 text-primary hover:bg-primary/10")}
+            >
+              <Sparkles className="size-3.5" /> AI
+            </button>
+          ) : null}
           {mode === "write" ? (
             TOOLS.map((t) => (
               <button
@@ -370,6 +419,8 @@ export function SceneEditor({ scene, chapter, project, prev, next }: SceneEditor
           </div>
         )}
       </main>
+
+      {aiRequest && mode === "write" ? <AiAssist key={`${aiRequest.start}-${aiRequest.end}-${aiRequest.value.length}`} sceneId={scene.id} ai={ai} request={aiRequest} onApply={applyAi} onClose={() => setAiRequest(null)} /> : null}
 
       <footer className="shrink-0 border-t px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto flex max-w-3xl items-center gap-1 text-sm">
