@@ -56,7 +56,7 @@ export function QuoteMenu({ id, isFavorite, text }: { id: string; isFavorite: bo
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link href={`/quotes/${id}/edit`}>
+            <Link href={`/quotes/${id}?edit=1`}>
               <Pencil /> 編集
             </Link>
           </DropdownMenuItem>
@@ -135,7 +135,7 @@ export function QuoteCardMenu({ id }: { id: string }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link href={`/quotes/${id}/edit`}>
+            <Link href={`/quotes/${id}?edit=1`}>
               <Pencil /> 編集
             </Link>
           </DropdownMenuItem>
