@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/** 創作タイムライン（timeline）は作業の記録なのでタブには出さず、概要の「最近の創作の動き」から開く */
 const TABS = [
   { seg: "", label: "概要" },
   { seg: "characters", label: "👤 人物" },
@@ -14,7 +15,6 @@ const TABS = [
   { seg: "chapters", label: "📖 章・シーン", also: ["scenes"] },
   { seg: "notes", label: "💡 メモ" },
   { seg: "references", label: "📚 参考資料" },
-  { seg: "timeline", label: "🕰 年表" },
   { seg: "ai", label: "🤖 AI編集者" },
 ];
 

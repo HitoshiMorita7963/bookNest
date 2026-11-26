@@ -127,8 +127,8 @@ test("テスト3：知識 → 創作に使う → 作品 → シーンへ関連�
 
 test("テスト4：作品 → AI編集者 → 関連する読書資料を探す → 参照元表示", async ({ page }) => {
   await page.goto(projectUrl);
-  // この作品に影響を与えたもの
-  await expect(page.getByText("この作品に影響を与えたもの")).toBeVisible();
+  // この作品に影響を与えた読書（概要）
+  await expect(page.getByText("この作品に影響を与えた読書")).toBeVisible();
   await tab(page, "🤖 AI編集者").click();
   await expect(page.getByText("何について相談しますか？")).toBeVisible();
   await page.getByRole("button", { name: "関連する読書資料を探して" }).click();

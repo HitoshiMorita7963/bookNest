@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { groupByDay, projectTimeline } from "@/server/services/novels";
 import { SectionTitle } from "@/components/books/bits";
 import { cn } from "@/lib/utils";
+import { ChevronLeft } from "lucide-react";
 
 export const metadata = { title: "創作タイムライン" };
 
@@ -12,7 +13,11 @@ export default async function TimelinePage({ params }: { params: Promise<{ id: s
   const groups = groupByDay(await projectTimeline(prisma, id));
   return (
     <section>
+      <Link href={`/creative/projects/${id}`} className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <ChevronLeft className="size-4" /> 概要へ戻る
+      </Link>
       <SectionTitle>🕰 創作タイムライン</SectionTitle>
+      <p className="-mt-2 mb-3 text-sm text-muted-foreground">この作品で人物・章・シーンなどを作ったり、読書から資料をつないだりした記録です。</p>
       <p className="mb-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-amber-500" /> 読書

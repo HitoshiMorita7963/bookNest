@@ -262,6 +262,8 @@ export function SceneEditor({ scene, chapter, project, prev, next, ai }: SceneEd
   }
 
   const top = `/creative/projects/${project.id}`;
+  // 戻り先は目次のある「章・シーン」タブ
+  const toc = `${top}/chapters`;
   const diff = chars - startChars;
 
   return (
@@ -269,7 +271,7 @@ export function SceneEditor({ scene, chapter, project, prev, next, ai }: SceneEd
       <style>{MANUSCRIPT_CSS}</style>
       <header className="shrink-0 border-b px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
         <div className="mx-auto flex max-w-3xl items-center gap-1">
-          <Button variant="ghost" size="icon-sm" aria-label="目次へ戻る" onClick={() => go(top)}>
+          <Button variant="ghost" size="icon-sm" aria-label="目次へ戻る" onClick={() => go(toc)}>
             <ChevronLeft />
           </Button>
           <div className="min-w-0 flex-1">
@@ -436,7 +438,7 @@ export function SceneEditor({ scene, chapter, project, prev, next, ai }: SceneEd
         </div>
       </footer>
       {/* 目次への戻り先（JavaScript が使えないとき用） */}
-      <Link href={top} className="sr-only">
+      <Link href={toc} className="sr-only">
         目次へ
       </Link>
     </div>
