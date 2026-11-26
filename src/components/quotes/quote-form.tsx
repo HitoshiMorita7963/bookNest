@@ -92,7 +92,11 @@ export function QuoteForm({
       }
       toast.success(quoteId ? "フレーズを更新しました" : "フレーズを保存しました");
       if (onSaved) onSaved(res.data.id);
-      else {
+      else if (quoteId) {
+        // 編集はフレーズの画面の中で行うので、同じ画面の表示に戻す（戻るで編集中に戻らないよう replace）
+        router.replace(`/quotes/${quoteId}`, { scroll: false });
+        router.refresh();
+      } else {
         router.push(`/quotes/${res.data.id}`);
         router.refresh();
       }
