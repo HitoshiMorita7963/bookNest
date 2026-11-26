@@ -22,7 +22,7 @@ async function addScene(page: Page, chapter: string, title: string, body = "") {
     await expect(page.getByRole("status", { name: "本文：保存済み" })).toBeVisible();
   }
   await page.getByRole("button", { name: "目次へ戻る" }).click();
-  await expect(page).toHaveURL(/\/creative\/projects\/c[a-z0-9]+$/);
+  await expect(page).toHaveURL(/\/creative\/projects\/c[a-z0-9]+\/chapters$/);
 }
 
 test("原稿の書き出し：本文をまとめて表示し、PDF・Word・テキストで保存できる", async ({ page }) => {

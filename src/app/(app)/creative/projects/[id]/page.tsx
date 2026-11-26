@@ -5,30 +5,38 @@ import { Bot, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getProject, projectReferences, projectTimeline } from "@/server/services/novels";
 import { projectToc } from "@/server/services/writing";
-import { ProjectToc, ResumeCard } from "@/components/writing/project-toc";
-import { ChapterSheetButton } from "@/components/creative/project-forms";
 import { SectionTitle } from "@/components/books/bits";
 import { Button } from "@/components/ui/button";
 import { DeleteProjectButton } from "@/components/creative/project-forms";
+import { SceneStatusBadge } from "@/components/creative/bits";
+import { ResumeCard } from "@/components/writing/project-toc";
+import { SCENE_STATUSES } from "@/lib/constants";
 
 export const metadata = { title: "小説プロジェクト" };
 
+/**
+ * 作品の概要：作品の入口。「続きを書く」と進み具合、各タブへのカードを並べる。
+ * 目次（章・シーンの一覧・並べ替え・書き出し）は「章・シーン」タブにまとめ、ここには出さない。
+ */
 export default async function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [p, refs, timeline, toc] = await Promise.all([getProject(prisma, id), projectReferences(prisma, id), projectTimeline(prisma, id), projectToc(prisma, id)]);
   if (!p) notFound();
   const base = `/creative/projects/${p.id}`;
-  const influence = [
-    { icon: "📚", label: "本", n: refs.counts.book, href: `${base}/references?type=book` },
-    { icon: "💬", label: "フレーズ", n: refs.counts.quote, href: `${base}/references?type=quote` },
-    { icon: "🧠", label: "知識", n: refs.counts.knowledge, href: `${base}/references?type=knowledge` },
-    { icon: "💡", label: "創作メモ", n: refs.counts.note, href: `${base}/notes` },
+  const scenes = toc.chapters.flatMap((c) => c.scenes);
+  const byStatus = SCENE_STATUSES.map((s) => ({ status: s, n: scenes.filter((x) => x.status === s).length })).filter((x) => x.n);
+  const written = scenes.filter((s) => s.chars > 0).length;
+  const sections = [
+    { icon: "👤", label: "人物", value: `${p._count.characters}人`, href: `${base}/characters` },
+    { icon: "🌍", label: "世界観", value: `${p._count.worldSettings}件`, href: `${base}/world` },
+    { icon: "📋", label: "プロット", value: `${p._count.plots}件`, href: `${base}/plots` },
+    { icon: "💡", label: "メモ", value: `${refs.counts.note}件`, href: `${base}/notes` },
+    { icon: "📚", label: "参考資料", value: `${refs.counts.book + refs.counts.quote + refs.counts.knowledge}件`, href: `${base}/references` },
   ];
-  const structure = [
-    { icon: "👤", label: "人物", n: p._count.characters, href: `${base}/characters` },
-    { icon: "🌍", label: "世界観", n: p._count.worldSettings, href: `${base}/world` },
-    { icon: "📋", label: "プロット", n: p._count.plots, href: `${base}/plots` },
-    { icon: "📖", label: "章", n: p._count.chapters, href: `${base}/chapters` },
+  const influence = [
+    { icon: "📚", label: "本", n: refs.counts.book, unit: "冊", href: `${base}/references?type=book` },
+    { icon: "💬", label: "フレーズ", n: refs.counts.quote, unit: "件", href: `${base}/references?type=quote` },
+    { icon: "🧠", label: "知識", n: refs.counts.knowledge, unit: "件", href: `${base}/references?type=knowledge` },
   ];
   return (
     <div className="space-y-8">
@@ -48,21 +56,59 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
         )}
       </section>
 
-      {/* 作品のトップは「目次」：続きを書く → 章・シーンの一覧 */}
-      <section className="space-y-3">
+      {/* 執筆：続きを書く・進み具合 → 目次は「章・シーン」タブ */}
+      <section className="space-y-3" aria-label="執筆">
         <ResumeCard toc={toc} />
-        <SectionTitle action={<ChapterSheetButton projectId={p.id} />}>
-          📖 目次{" "}
-          <span className="text-sm font-normal text-muted-foreground">
-            {toc.totalChars.toLocaleString()}字・{toc.sceneCount}シーン
-          </span>
-        </SectionTitle>
-        <ProjectToc projectId={p.id} toc={toc} />
+        <Link href={`${base}/chapters`} className="block rounded-2xl border bg-card p-4 hover:bg-accent/40">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">📖 章・シーン</span>
+            <ChevronRight className="ml-auto size-5 text-muted-foreground" />
+          </div>
+          {toc.chapters.length ? (
+            <>
+              <p className="mt-1 text-2xl font-bold tabular-nums">
+                {toc.totalChars.toLocaleString()}
+                <span className="ml-0.5 text-sm font-normal text-muted-foreground">字</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {toc.chapters.length}章・{toc.sceneCount}シーン（本文あり {written}）
+              </p>
+              {byStatus.length ? (
+                <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="シーンの状態">
+                  {byStatus.map((x) => (
+                    <li key={x.status} className="flex items-center gap-1 text-xs">
+                      <SceneStatusBadge status={x.status} />
+                      <span className="tabular-nums">{x.n}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">章を作り、その中にシーンを並べて書いていきます。目次・並べ替え・書き出しもここから。</p>
+          )}
+        </Link>
       </section>
 
       <section>
-        <SectionTitle>この作品に影響を与えたもの</SectionTitle>
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <SectionTitle>作品の設定と材料</SectionTitle>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {sections.map((x) => (
+            <li key={x.label}>
+              <Link href={x.href} className="flex items-center justify-between gap-2 rounded-xl border bg-card p-3 hover:bg-accent/40">
+                <span className="text-sm">
+                  {x.icon} {x.label}
+                </span>
+                <span className="font-semibold tabular-nums">{x.value}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <SectionTitle>この作品に影響を与えた読書</SectionTitle>
+        <ul className="grid grid-cols-3 gap-2">
           {influence.map((x) => (
             <li key={x.label}>
               <Link href={x.href} className="block rounded-xl border bg-card p-3 hover:bg-accent/40">
@@ -71,24 +117,8 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
                 </p>
                 <p className="text-2xl font-bold tabular-nums">
                   {x.n}
-                  <span className="ml-0.5 text-xs font-normal text-muted-foreground">{x.label === "本" ? "冊" : "件"}</span>
+                  <span className="ml-0.5 text-xs font-normal text-muted-foreground">{x.unit}</span>
                 </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <SectionTitle>作品の構成</SectionTitle>
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {structure.map((x) => (
-            <li key={x.label}>
-              <Link href={x.href} className="flex items-center justify-between rounded-xl border bg-card p-3 hover:bg-accent/40">
-                <span className="text-sm">
-                  {x.icon} {x.label}
-                </span>
-                <span className="font-semibold tabular-nums">{x.n}</span>
               </Link>
             </li>
           ))}
@@ -107,7 +137,15 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
       </Link>
 
       <section>
-        <SectionTitle action={<Link href={`${base}/timeline`} className="text-sm text-primary">すべて</Link>}>🕰 最近の創作の動き</SectionTitle>
+        <SectionTitle
+          action={
+            <Link href={`${base}/timeline`} className="text-sm text-primary">
+              すべて
+            </Link>
+          }
+        >
+          🕰 最近の創作の動き
+        </SectionTitle>
         <ol className="space-y-2">
           {timeline.slice(0, 6).map((e, i) => (
             <li key={i} className="flex gap-3 text-sm">

@@ -19,7 +19,12 @@ test("執筆画面：目次からシーンを書き、自動保存して、続�
   await expect(page).toHaveURL(/\/creative\/projects\/c[a-z0-9]+$/);
   const top = page.url();
 
-  // 作品トップに目次。章を作り、章の「＋ シーン」から追加すると執筆画面が開く
+  // 概要は入口。目次は出さず、「章・シーン」のカードから目次へ移る
+  await expect(toc(page)).toHaveCount(0);
+  await page.getByRole("region", { name: "執筆" }).getByRole("link", { name: /章・シーン/ }).click();
+  await expect(page).toHaveURL(`${top}/chapters`);
+
+  // 章を作り、章の「＋ シーン」から追加すると執筆画面が開く
   await page.getByRole("button", { name: "章", exact: true }).click();
   await submitSheet(page, { "章タイトル *": "第1章　灯り" });
   await chapterItem(page, "第1章　灯り").getByRole("button", { name: "シーン" }).click();
@@ -80,7 +85,7 @@ test("執筆画面：目次からシーンを書き、自動保存して、続�
 
   // 目次へ戻ると、文字数と状態が反映されている
   await page.getByRole("button", { name: "目次へ戻る" }).click();
-  await expect(page).toHaveURL(top);
+  await expect(page).toHaveURL(`${top}/chapters`);
   await expect(toc(page).getByRole("link", { name: /夜の見張りを書く/ })).toContainText("16字");
   await expect(toc(page).getByRole("link", { name: /夜の見張りを書く/ })).toContainText("初稿");
 
@@ -95,8 +100,10 @@ test("執筆画面：目次からシーンを書き、自動保存して、続�
   // 移動する前に保存されている
   await expect(page.getByRole("textbox", { name: "本文" })).toHaveValue("　風が変わった。");
 
-  // 作品トップの「続きを書く」は、最後に書いたシーンを開く
+  // 概要の「続きを書く」は、最後に書いたシーンを開く。概要には文字数と状態の内訳が出る
   await page.goto(top);
+  await expect(page.getByRole("region", { name: "執筆" })).toContainText("1章・2シーン（本文あり 2）");
+  await expect(page.getByRole("list", { name: "シーンの状態" })).toContainText("初稿");
   await expect(page.getByRole("link", { name: /続きを書く/ })).toContainText("嵐の前");
   await page.getByRole("link", { name: /続きを書く/ }).click();
   await expect(page.getByRole("heading", { name: "嵐の前" })).toBeVisible();
