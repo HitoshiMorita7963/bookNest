@@ -65,6 +65,10 @@ test("原稿の書き出し：本文をまとめて表示し、PDF・Word・テ�
   await page.getByRole("group", { name: "文字の向き" }).getByRole("link", { name: "縦書き" }).click();
   await expect(page).toHaveURL(/dir=v/);
   await expect(paper).toHaveCSS("writing-mode", "vertical-rl");
+  // 縦書きの原稿は画面の幅に収まり、長いときは原稿の枠の中で横にスクロールする（ページ全体ははみ出さない）
+  const fit = await paper.evaluate((el) => ({ w: el.getBoundingClientRect().width, parent: el.parentElement!.clientWidth, overflowX: getComputedStyle(el).overflowX }));
+  expect(fit.w).toBeLessThanOrEqual(fit.parent);
+  expect(fit.overflowX).toBe("auto");
 
   // 印刷（PDF）ではツールバーが消え、原稿だけになる
   await page.emulateMedia({ media: "print" });

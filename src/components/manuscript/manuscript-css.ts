@@ -10,7 +10,8 @@ export const MANUSCRIPT_CSS = `
 .ms-paper .ms-break { text-align: center; margin: 1.2em 0; }
 .ms-paper rt { font-size: 0.5em; }
 .ms-paper .ms-emph { font-style: normal; text-emphasis: filled sesame; -webkit-text-emphasis: filled sesame; }
-.ms-vertical { writing-mode: vertical-rl; height: 72dvh; overflow-x: auto; }
+/* 縦書きは中身に合わせて横に広がるので、幅を置き場所に合わせて固定し、はみ出した分は枠の中で横にスクロールする */
+.ms-vertical { writing-mode: vertical-rl; width: 100%; max-width: 100%; height: 72dvh; overflow-x: auto; overscroll-behavior-x: contain; }
 .ms-vertical h1, .ms-vertical .ms-logline { margin: 0 3em 0 1em; text-align: start; padding-top: 4em; }
 .ms-vertical h2 { margin: 0 2em 0 1.5em; padding-top: 1em; }
 .ms-vertical h3 { margin: 0 1.5em 0 1em; padding-top: 2em; }
@@ -21,6 +22,6 @@ export const MANUSCRIPT_CSS = `
   .ms-paper { font-size: 10pt; box-shadow: none !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; }
   .ms-paper h2 { break-before: page; }
   .ms-paper h2, .ms-paper h3 { break-after: avoid; }
-  .ms-vertical { height: auto; overflow: visible; }
+  .ms-vertical { width: auto; max-width: none; height: auto; overflow: visible; }
 }
 `;
