@@ -72,3 +72,30 @@ test("創作への利用をフレーズ側から解除できる", async ({ page 
   await expect(page.getByText("関連付けを解除しました")).toBeVisible();
   await expect(section.getByText("外す予定のメモ")).toHaveCount(0);
 });
+
+test("フレーズの編集画面で、保存せずに知識とつなげられる（編集中の内容は消えない）", async ({ page }) => {
+  await createKnowledge(page, "編集中につなぐ知識");
+  const quoteUrl = await createQuote(page, "編集中につなぐフレーズ");
+
+  await page.goto(`${quoteUrl}/edit`);
+  await page.getByLabel("自分のメモ（なぜ残したのか）").fill("まだ保存していないメモ");
+
+  // 編集画面の「関連する知識」からつなげる → その場で保存される
+  const section = page.getByRole("region", { name: "関連する知識" });
+  await section.getByRole("button", { name: "知識とつなげる" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("知識を検索").fill("編集中につなぐ");
+  await dialog.getByRole("button", { name: /編集中につなぐ知識/ }).click();
+  await expect(page.getByText("知識とつなげました")).toBeVisible();
+  await expect(section.getByRole("link", { name: /編集中につなぐ知識/ })).toBeVisible();
+  // 編集画面では、知識の作成画面へ移る「新規」は出さない（編集中の内容が消えるため）
+  await expect(section.getByRole("link", { name: "新規" })).toHaveCount(0);
+  // 入力中のメモはそのまま
+  await expect(page.getByLabel("自分のメモ（なぜ残したのか）")).toHaveValue("まだ保存していないメモ");
+
+  // 更新すると、メモも知識のつながりもフレーズの画面に出る
+  await page.getByRole("button", { name: "更新する" }).click();
+  await expect(page).toHaveURL(quoteUrl);
+  await expect(page.getByText("まだ保存していないメモ")).toBeVisible();
+  await expect(page.getByRole("region", { name: "関連する知識" }).getByRole("link", { name: /編集中につなぐ知識/ })).toBeVisible();
+});
