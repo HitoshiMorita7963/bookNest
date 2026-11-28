@@ -71,7 +71,7 @@ export default async function ReadingPage() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <ReadingQuickActions book={{ id: b.id, title: b.title, status: b.status, currentPage: b.currentPage, pageCount: b.pageCount }} />
+                  <ReadingQuickActions book={{ id: b.id, title: b.title, status: b.status, currentPage: b.currentPage, pageCount: b.pageCount, startedAt: b.startedAt }} />
                 </div>
               </li>
             );

@@ -211,6 +211,7 @@ export function RecordSheet({
   bookId,
   bookTitle,
   record,
+  startedAt,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -218,11 +219,13 @@ export function RecordSheet({
   bookId: string;
   bookTitle: string;
   record?: RecordData;
+  /** 読了するとき：いま読んでいる記録の読み始めた日（「読み始めた日」に最初から入れる） */
+  startedAt?: Date | null;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} repositionInputs={false}>
       <SheetContent title={mode === "finish" ? "読了する" : "読書記録を編集"} description={`『${bookTitle}』`}>
-        <RecordBody mode={mode} bookId={bookId} bookTitle={bookTitle} record={record} onDone={() => onOpenChange(false)} />
+        <RecordBody mode={mode} bookId={bookId} bookTitle={bookTitle} record={record} startedAt={startedAt} onDone={() => onOpenChange(false)} />
       </SheetContent>
     </Sheet>
   );
@@ -233,19 +236,21 @@ function RecordBody({
   bookId,
   bookTitle,
   record,
+  startedAt,
   onDone,
 }: {
   mode: "finish" | "edit";
   bookId: string;
   bookTitle: string;
   record?: RecordData;
+  startedAt?: Date | null;
   onDone: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [showMore, setShowMore] = useState(mode === "edit" && !!(record?.summary || record?.memorable || record?.questions));
   const [v, setV] = useState<RecordValues>(() => ({
-    startedAt: toDateInput(record?.startedAt),
+    startedAt: toDateInput(record?.startedAt ?? startedAt),
     finishedAt: toDateInput(record?.finishedAt ?? (mode === "finish" ? new Date() : null)),
     rating: record?.rating ?? null,
     review: record?.review ?? "",

@@ -18,6 +18,8 @@ export interface ReadingBook {
   status: string;
   currentPage: number;
   pageCount: number | null;
+  /** 読み始めた日（読了の画面に最初から入れておく） */
+  startedAt?: Date | null;
 }
 
 /** 読書中の本の主要操作（メモ／フレーズ／進捗／読了）。1〜2タップで到達できるようにする */
@@ -38,7 +40,7 @@ export function ReadingQuickActions({ book, size = "default" }: { book: ReadingB
       </div>
       <ProgressSheet open={sheet === "progress"} onOpenChange={(o) => setSheet(o ? "progress" : null)} book={book} />
       <NoteSheet open={sheet === "note"} onOpenChange={(o) => setSheet(o ? "note" : null)} book={book} />
-      <RecordSheet open={sheet === "finish"} onOpenChange={(o) => setSheet(o ? "finish" : null)} mode="finish" bookId={book.id} bookTitle={book.title} />
+      <RecordSheet open={sheet === "finish"} onOpenChange={(o) => setSheet(o ? "finish" : null)} mode="finish" bookId={book.id} bookTitle={book.title} startedAt={book.startedAt} />
     </>
   );
 }
@@ -117,7 +119,7 @@ export function BookStatusPanel({ book }: { book: ReadingBook }) {
         </div>
       )}
       <StatusSheet open={statusOpen} onOpenChange={setStatusOpen} bookId={book.id} current={book.status} onFinishRequested={() => setFinishOpen(true)} />
-      <RecordSheet open={finishOpen} onOpenChange={setFinishOpen} mode="finish" bookId={book.id} bookTitle={book.title} />
+      <RecordSheet open={finishOpen} onOpenChange={setFinishOpen} mode="finish" bookId={book.id} bookTitle={book.title} startedAt={book.startedAt} />
     </div>
   );
 }

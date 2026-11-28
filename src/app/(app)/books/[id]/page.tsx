@@ -65,7 +65,7 @@ export default async function BookDetailPage({ params }: { params: Promise<{ id:
             <BookHeading book={book} />
           </div>
 
-          <BookStatusPanel book={{ id: book.id, title: book.title, status: book.status, currentPage: book.currentPage, pageCount: book.pageCount }} />
+          <BookStatusPanel book={{ id: book.id, title: book.title, status: book.status, currentPage: book.currentPage, pageCount: book.pageCount, startedAt: book.startedAt }} />
 
           {book.tags.length ? (
             <div className="flex flex-wrap gap-1.5">
