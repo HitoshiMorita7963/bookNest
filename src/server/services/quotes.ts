@@ -21,9 +21,14 @@ export async function createQuote(db: Db, input: QuoteInput, opts: { isSample?: 
     const book = await db.book.findUnique({ where: { id: data.bookId }, select: { id: true } });
     if (!book) throw new NotFoundError("本");
   }
+  const knowledgeIds = [...new Set(data.knowledgeIds)];
+  if (knowledgeIds.length) {
+    const found = await db.knowledgeNote.count({ where: { id: { in: knowledgeIds } } });
+    if (found !== knowledgeIds.length) throw new NotFoundError("知識");
+  }
   return db.$transaction(async (tx) => {
     const tagIds = await upsertTags(tx, data.tags);
-    return tx.quote.create({
+    const quote = await tx.quote.create({
       data: {
         text: data.text,
         bookId: data.bookId,
@@ -35,6 +40,15 @@ export async function createQuote(db: Db, input: QuoteInput, opts: { isSample?: 
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
     });
+    // 知識とつなげる（本があれば、本と知識もつなげる：linkQuoteKnowledge と同じ）
+    for (const knowledgeId of knowledgeIds) {
+      await tx.quoteKnowledge.create({ data: { quoteId: quote.id, knowledgeId } });
+      if (data.bookId) {
+        await tx.bookKnowledge.upsert({ where: { bookId_knowledgeId: { bookId: data.bookId, knowledgeId } }, create: { bookId: data.bookId, knowledgeId }, update: {} });
+      }
+      await tx.knowledgeNote.update({ where: { id: knowledgeId }, data: { updatedAt: new Date() } });
+    }
+    return quote;
   });
 }
 

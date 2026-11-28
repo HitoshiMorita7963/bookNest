@@ -13,6 +13,8 @@ import type { CreativeTargets } from "@/server/services/creative";
 export interface TargetValue {
   target: { kind: LinkTargetKind; id: string };
   purpose: string;
+  /** 表示用：「作品名 ／ 人物「ハル」」など */
+  label: string;
 }
 
 const KINDS: Exclude<LinkTargetKind, "note">[] = ["project", "character", "world", "plot", "chapter", "scene"];
@@ -71,7 +73,11 @@ export function TargetPicker({
   const selectedItem = kind === "project" ? projectId : items.some((i) => i.id === itemId) ? itemId : items[0]?.id ?? "";
   useEffect(() => {
     if (!projectId || !selectedItem) onChange(null);
-    else onChange({ target: { kind, id: selectedItem }, purpose });
+    else {
+      const item = items.find((i) => i.id === selectedItem);
+      const where = kind === "project" ? "作品全体" : `${LINK_TARGET_LABEL[kind]}「${item?.label ?? ""}」`;
+      onChange({ target: { kind, id: selectedItem }, purpose, label: `${project?.title ?? ""} ／ ${where}` });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, kind, selectedItem, purpose]);
 

@@ -123,6 +123,31 @@ export function LinkKnowledgeToQuoteButton({ quoteId, linkedIds }: { quoteId: st
   );
 }
 
+/** 新しいフレーズ：保存するときに一緒につなげる知識を選ぶ（ここでは保存しない） */
+export function SelectKnowledgeButton({ selectedIds, onSelect }: { selectedIds: string[]; onSelect: (k: { id: string; title: string; category: string | null }) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <Link2 /> 知識とつなげる
+      </Button>
+      <PickSheet
+        open={open}
+        onOpenChange={setOpen}
+        title="知識とつなげる"
+        description="このフレーズから得た知識を選んでください。フレーズを保存するときに一緒につながります"
+        placeholder="知識を検索"
+        search={searchKnowledge}
+        exclude={selectedIds}
+        onPick={async (it) => {
+          onSelect({ id: it.id, title: it.label.replace(/^🧠 /, ""), category: it.sub ?? null });
+          return true;
+        }}
+      />
+    </>
+  );
+}
+
 /** 知識詳細：元になったフレーズを追加 */
 export function LinkQuoteToKnowledgeButton({ knowledgeId, linkedIds }: { knowledgeId: string; linkedIds: string[] }) {
   const router = useRouter();
