@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, resetDb } from "./helpers";
 import { createBook } from "@/server/services/books";
+import { createKnowledge } from "@/server/services/knowledge";
 import { createQuote, deleteQuote, getQuote, listQuotes, toggleFavorite, updateQuote } from "@/server/services/quotes";
 import { cleanOcrText, guessVertical } from "@/lib/ocr/text";
 
@@ -42,6 +43,18 @@ describe("Quote", () => {
       const q = await createQuote(db, { text: "x", pageNumber: p });
       expect(q.pageNumber).toBe(p);
     }
+  });
+
+  it("links knowledge chosen when saving a new quote (and the book to that knowledge)", async () => {
+    const book = await createBook(db, { title: "こころ" });
+    const k = await createKnowledge(db, { title: "向上心と自尊心" });
+    const q = await createQuote(db, { text: "精神的に向上心のないものは馬鹿だ。", bookId: book.id, knowledgeIds: [k.id, k.id] });
+    const got = await getQuote(db, q.id);
+    expect(got?.knowledge.map((x) => x.knowledge.id)).toEqual([k.id]);
+    expect(await db.bookKnowledge.count({ where: { bookId: book.id, knowledgeId: k.id } })).toBe(1);
+    // 存在しない知識なら、フレーズも保存しない
+    await expect(createQuote(db, { text: "x", knowledgeIds: ["nope"] })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await db.quote.count({ where: { text: "x" } })).toBe(0);
   });
 
   it("rejects empty text and unknown book", async () => {

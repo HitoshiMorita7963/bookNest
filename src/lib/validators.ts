@@ -128,6 +128,8 @@ export const quoteInputSchema = z.object({
   originalImage: imageRef,
   tags: nameList,
   isFavorite: z.boolean().optional().default(false),
+  /** 新しく保存するときに一緒につなげる知識（編集ではその場で保存するので使わない） */
+  knowledgeIds: z.array(z.string().max(50)).max(50).default([]),
 });
 export type QuoteInput = z.input<typeof quoteInputSchema>;
 

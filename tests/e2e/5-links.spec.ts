@@ -110,3 +110,30 @@ test("フレーズは同じ画面で編集でき、保存せずに知識とつ�
   await expect(page.getByText("まだ保存していないメモ")).toBeVisible();
   await expect(page.getByRole("region", { name: "関連する知識" }).getByRole("link", { name: /編集中につなぐ知識/ })).toBeVisible();
 });
+
+test("新しいフレーズの登録画面で知識を選び、保存と一緒につなげられる", async ({ page }) => {
+  await createKnowledge(page, "登録時につなぐ知識");
+  await createKnowledge(page, "選んで外す知識");
+
+  await page.goto("/quotes/new");
+  await page.getByRole("button", { name: "テキストを入力" }).click();
+  await page.getByLabel("フレーズ").fill("登録時につなぐフレーズ");
+  const section = page.getByRole("region", { name: "関連する知識" });
+  const dialog = page.getByRole("dialog");
+  for (const title of ["登録時につなぐ知識", "選んで外す知識"]) {
+    await section.getByRole("button", { name: "知識とつなげる" }).click();
+    await dialog.getByLabel("知識を検索").fill(title);
+    await dialog.getByRole("button", { name: new RegExp(title) }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(section.getByText(title)).toBeVisible();
+  }
+  // 選んだものは外せる（まだ保存していない）
+  await section.getByRole("button", { name: "「選んで外す知識」を外す" }).click();
+  await expect(section.getByText("選んで外す知識")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "保存する" }).click();
+  await expect(page).toHaveURL(/\/quotes\/c[a-z0-9]+$/);
+  const saved = page.getByRole("region", { name: "関連する知識" });
+  await expect(saved.getByRole("link", { name: /登録時につなぐ知識/ })).toBeVisible();
+  await expect(saved.getByText("選んで外す知識")).toHaveCount(0);
+});

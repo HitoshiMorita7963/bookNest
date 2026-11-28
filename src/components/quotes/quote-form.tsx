@@ -3,11 +3,12 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookOpen, Heart, Loader2, X } from "lucide-react";
+import { BookOpen, Brain, Heart, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea, Checkbox } from "@/components/ui/form-controls";
 import { BookPickerSheet, type PickedBook } from "@/components/books/book-picker";
 import { BookCover } from "@/components/books/book-cover";
+import { SelectKnowledgeButton } from "@/components/knowledge/quote-knowledge-links";
 import { createQuoteAction, listTagNamesAction, updateQuoteAction } from "@/server/actions/quotes";
 import { splitList, cn } from "@/lib/utils";
 
@@ -45,6 +46,8 @@ export function QuoteForm({
   const [tagSuggest, setTagSuggest] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  // 新しいフレーズのときだけ：保存と一緒につなげる知識（編集中は画面下の「関連する知識」でその場で保存する）
+  const [knowledge, setKnowledge] = useState<{ id: string; title: string; category: string | null }[]>([]);
 
   const [seenVersion, setSeenVersion] = useState(textVersion);
   if (seenVersion !== textVersion) {
@@ -84,6 +87,7 @@ export function QuoteForm({
         isFavorite: v.isFavorite,
         bookId: v.book?.id ?? null,
         originalImage: image,
+        knowledgeIds: quoteId ? [] : knowledge.map((k) => k.id),
       };
       const res = quoteId ? await updateQuoteAction(quoteId, payload) : await createQuoteAction(payload);
       if (!res.ok) {
@@ -184,6 +188,32 @@ export function QuoteForm({
       <Field label="自分のメモ（なぜ残したのか）" htmlFor="q-note">
         <Textarea id="q-note" value={v.note} onChange={(e) => setV({ ...v, note: e.target.value })} rows={3} placeholder="今の自分にも当てはまる…" />
       </Field>
+
+      {quoteId ? null : (
+        <section aria-label="関連する知識" className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <Brain className="size-4 text-primary" /> 関連する知識
+            </p>
+            <SelectKnowledgeButton selectedIds={knowledge.map((k) => k.id)} onSelect={(k) => setKnowledge((p) => (p.some((x) => x.id === k.id) ? p : [...p, k]))} />
+          </div>
+          {knowledge.length ? (
+            <ul className="space-y-1.5">
+              {knowledge.map((k) => (
+                <li key={k.id} className="flex items-center gap-1 rounded-xl border bg-card pl-3">
+                  <span className="min-w-0 flex-1 truncate py-2.5 text-sm font-medium">🧠 {k.title}</span>
+                  {k.category ? <span className="shrink-0 text-xs text-muted-foreground">{k.category}</span> : null}
+                  <Button type="button" variant="ghost" size="icon-sm" className="m-1 shrink-0" aria-label={`「${k.title}」を外す`} onClick={() => setKnowledge((p) => p.filter((x) => x.id !== k.id))}>
+                    <X className="size-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">既存の知識を選ぶと、保存するときに一緒につながります。創作への利用や新しい知識づくりは、保存した後のフレーズの画面からできます。</p>
+          )}
+        </section>
+      )}
 
       <label className="flex min-h-11 items-center gap-3">
         <Checkbox checked={v.isFavorite} onCheckedChange={(c) => setV({ ...v, isFavorite: c === true })} />
