@@ -29,6 +29,7 @@ export function NoteForm({
   initial,
   link,
   onSaved,
+  onSubmitValues,
   submitLabel,
 }: {
   noteId?: string;
@@ -36,6 +37,8 @@ export function NoteForm({
   /** 元資料・作品への紐付け（「創作に使う」から作る場合） */
   link?: { source?: LinkInput["source"]; target?: LinkInput["target"]; purpose?: string | null };
   onSaved?: (id: string) => void;
+  /** 指定すると保存せず、入力内容を渡すだけ（まだ保存していないフレーズの「創作に使う」で予約するとき） */
+  onSubmitValues?: (v: Pick<NoteFormValues, "title" | "content" | "category">) => void;
   submitLabel?: string;
 }) {
   const router = useRouter();
@@ -50,6 +53,7 @@ export function NoteForm({
       setError("タイトルか本文を入力してください");
       return;
     }
+    if (onSubmitValues) return void onSubmitValues({ title: v.title, content: v.content, category: v.category });
     start(async () => {
       const payload = { title: v.title, content: v.content, category: v.category, status: v.status, tags: splitList(v.tags) };
       const res = editing ? await updateCreativeNoteAction(noteId!, payload) : await createCreativeNoteAction(payload, link);

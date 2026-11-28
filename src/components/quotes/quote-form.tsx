@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookOpen, Brain, Heart, Loader2, X } from "lucide-react";
+import { BookOpen, Brain, Heart, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea, Checkbox } from "@/components/ui/form-controls";
 import { BookPickerSheet, type PickedBook } from "@/components/books/book-picker";
 import { BookCover } from "@/components/books/book-cover";
 import { SelectKnowledgeButton } from "@/components/knowledge/quote-knowledge-links";
+import { QueueCreativeUseButton, type QueuedCreativeUse } from "@/components/creative/use-in-creative";
+import { quoted } from "@/lib/quote-marks";
 import { createQuoteAction, listTagNamesAction, updateQuoteAction } from "@/server/actions/quotes";
 import { splitList, cn } from "@/lib/utils";
 
@@ -22,6 +25,8 @@ export interface QuoteFormValues {
   originalImage: string | null;
 }
 
+const noSubscribe = () => () => undefined;
+
 export function QuoteForm({
   quoteId,
   initial,
@@ -29,7 +34,10 @@ export function QuoteForm({
   beforeSave,
   onSaved,
   textVersion = 0,
+  submitSlotId,
 }: {
+  /** 指定すると、保存ボタンをこの id の要素の中に出す（編集画面：削除ボタンの上に置く） */
+  submitSlotId?: string;
   /** OCR をやり直すたびに増える値。変わったら本文を initial.text で置き換える */
   textVersion?: number;
   quoteId?: string;
@@ -48,6 +56,14 @@ export function QuoteForm({
   const [pending, start] = useTransition();
   // 新しいフレーズのときだけ：保存と一緒につなげる知識（編集中は画面下の「関連する知識」でその場で保存する）
   const [knowledge, setKnowledge] = useState<{ id: string; title: string; category: string | null }[]>([]);
+  // 新しいフレーズのときだけ：保存と一緒に実行する「創作に使う」
+  const [uses, setUses] = useState<QueuedCreativeUse[]>([]);
+  // 置き場所の要素はサーバーの描画にあるので、画面に出たあと（クライアント）で探す
+  const submitSlot = useSyncExternalStore(
+    noSubscribe,
+    () => (submitSlotId ? document.getElementById(submitSlotId) : null),
+    () => null,
+  );
 
   const [seenVersion, setSeenVersion] = useState(textVersion);
   if (seenVersion !== textVersion) {
@@ -89,12 +105,15 @@ export function QuoteForm({
         originalImage: image,
         knowledgeIds: quoteId ? [] : knowledge.map((k) => k.id),
       };
-      const res = quoteId ? await updateQuoteAction(quoteId, payload) : await createQuoteAction(payload);
+      const res = quoteId ? await updateQuoteAction(quoteId, payload) : await createQuoteAction(payload, uses);
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       toast.success(quoteId ? "フレーズを更新しました" : "フレーズを保存しました");
+      if ("failedUses" in res.data && res.data.failedUses) {
+        toast.warning(`「創作に使う」のうち${res.data.failedUses}件を反映できませんでした。フレーズの画面からもう一度試してください。`);
+      }
       if (onSaved) onSaved(res.data.id);
       else if (quoteId) {
         // 編集はフレーズの画面の中で行うので、同じ画面の表示に戻す（戻るで編集中に戻らないよう replace）
@@ -106,6 +125,13 @@ export function QuoteForm({
       }
     });
   }
+
+  const submitButton = (
+    <Button size="lg" className="w-full" onClick={save} disabled={pending}>
+      {pending ? <Loader2 className="animate-spin" /> : null}
+      {quoteId ? "更新する" : "保存する"}
+    </Button>
+  );
 
   return (
     <div className="space-y-5">
@@ -210,7 +236,36 @@ export function QuoteForm({
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-muted-foreground">既存の知識を選ぶと、保存するときに一緒につながります。創作への利用や新しい知識づくりは、保存した後のフレーズの画面からできます。</p>
+            <p className="text-xs text-muted-foreground">既存の知識を選ぶと、保存するときに一緒につながります。新しい知識は、保存した後のフレーズの画面の「新規」から作れます。</p>
+          )}
+        </section>
+      )}
+
+      {quoteId ? null : (
+        <section aria-label="創作への利用" className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <Sparkles className="size-4 text-primary" /> 創作への利用
+            </p>
+            <QueueCreativeUseButton
+              defaultTitle={v.text.slice(0, 30)}
+              defaultContent={`${quoted(v.text)}${v.book ? `\n——『${v.book.title}』${v.pageNumber ? ` ${v.pageNumber}` : ""}` : ""}`}
+              onQueue={(u) => setUses((p) => [...p, u])}
+            />
+          </div>
+          {uses.length ? (
+            <ul className="space-y-1.5">
+              {uses.map((u, i) => (
+                <li key={i} className="flex items-center gap-1 rounded-xl border bg-card pl-3">
+                  <span className="min-w-0 flex-1 py-2.5 text-sm">{u.label}</span>
+                  <Button type="button" variant="ghost" size="icon-sm" className="m-1 shrink-0" aria-label={`「${u.label}」をやめる`} onClick={() => setUses((p) => p.filter((_, j) => j !== i))}>
+                    <X className="size-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">作品（人物・シーンなど）への関連付け、創作メモ、創作知識をここで選んでおくと、保存するときに一緒に反映されます。</p>
           )}
         </section>
       )}
@@ -231,12 +286,13 @@ export function QuoteForm({
         </div>
       ) : null}
 
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0">
-        <Button size="lg" className="w-full" onClick={save} disabled={pending}>
-          {pending ? <Loader2 className="animate-spin" /> : null}
-          {quoteId ? "更新する" : "保存する"}
-        </Button>
-      </div>
+      {submitSlotId ? (
+        submitSlot ? createPortal(submitButton, submitSlot) : null
+      ) : (
+        <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0">
+          {submitButton}
+        </div>
+      )}
 
       <BookPickerSheet
         open={pickOpen}

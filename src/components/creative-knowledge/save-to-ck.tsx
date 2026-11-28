@@ -21,7 +21,23 @@ export interface CkSource {
  * 新しく作る：タイトル・カテゴリ・自分の気づきを入れて、元の読書データを「参考にした読書」としてつなぐ。
  * 既存につなげる：既にある創作知識を選んで、元の読書データを参考としてつなぐ。
  */
-export function SaveToCkBody({ source, defaultTitle = "", onDone }: { source: CkSource; defaultTitle?: string; onDone: () => void }) {
+/** 予約（まだ保存していないフレーズから）：保存せず、内容を渡す */
+export type CkQueued =
+  | { type: "ck-new"; ck: { title: string; category: CkCategory; subCategory: string | null }; comment: string; location: string; label: string }
+  | { type: "ck-ref"; knowledgeId: string; comment: string; location: string; label: string };
+
+export function SaveToCkBody({
+  source,
+  defaultTitle = "",
+  onDone,
+  onQueue,
+}: {
+  source: CkSource;
+  defaultTitle?: string;
+  onDone: () => void;
+  /** 指定すると保存せず、予約として渡す */
+  onQueue?: (use: CkQueued) => void;
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [title, setTitle] = useState(defaultTitle);
@@ -41,6 +57,10 @@ export function SaveToCkBody({ source, defaultTitle = "", onDone }: { source: Ck
 
   function createNew() {
     if (!title.trim()) return void toast.error("タイトルを入力してください");
+    if (onQueue) {
+      onQueue({ type: "ck-new", ck: { title, category, subCategory: subCategory || null }, comment, location, label: `🧠 創作知識を作る「${title.trim()}」` });
+      return onDone();
+    }
     start(async () => {
       const res = await createCkFromSourceAction({ title, category, subCategory: subCategory || null }, { source, comment, location });
       if (!res.ok) return void toast.error(res.error);
@@ -52,6 +72,10 @@ export function SaveToCkBody({ source, defaultTitle = "", onDone }: { source: Ck
   }
 
   function linkExisting(knowledgeId: string, knowledgeTitle: string) {
+    if (onQueue) {
+      onQueue({ type: "ck-ref", knowledgeId, comment, location, label: `🧠 創作知識「${knowledgeTitle}」の参考にする` });
+      return onDone();
+    }
     start(async () => {
       const res = await addCkReferenceAction({ knowledgeId, source, comment, location });
       if (!res.ok) return void toast.error(res.error);

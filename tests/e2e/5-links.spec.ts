@@ -103,17 +103,31 @@ test("フレーズは同じ画面で編集でき、保存せずに知識とつ�
   // 入力中のメモはそのまま
   await expect(page.getByLabel("自分のメモ（なぜ残したのか）")).toHaveValue("まだ保存していないメモ");
 
+  // 「更新する」は、関連する知識・創作への利用の下、削除ボタンのすぐ上にある
+  const update = page.getByRole("button", { name: "更新する" });
+  const [updateBox, creativeBox, deleteBox] = await Promise.all([
+    update.boundingBox(),
+    page.getByRole("region", { name: "創作への利用" }).boundingBox(),
+    page.getByRole("button", { name: "このフレーズを削除" }).boundingBox(),
+  ]);
+  expect(updateBox!.y).toBeGreaterThan(creativeBox!.y);
+  expect(updateBox!.y).toBeLessThan(deleteBox!.y);
+
   // 更新すると、同じ画面の表示に戻り、メモも知識のつながりも出ている
-  await page.getByRole("button", { name: "更新する" }).click();
+  await update.click();
   await expect(page).toHaveURL(quoteUrl);
   await expect(page.getByRole("heading", { name: "フレーズ", exact: true })).toBeVisible();
   await expect(page.getByText("まだ保存していないメモ")).toBeVisible();
   await expect(page.getByRole("region", { name: "関連する知識" }).getByRole("link", { name: /編集中につなぐ知識/ })).toBeVisible();
 });
 
-test("新しいフレーズの登録画面で知識を選び、保存と一緒につなげられる", async ({ page }) => {
+test("新しいフレーズの登録画面で知識と「創作に使う」を選び、保存と一緒につなげられる", async ({ page }) => {
   await createKnowledge(page, "登録時につなぐ知識");
   await createKnowledge(page, "選んで外す知識");
+  await page.goto("/creative/projects/new");
+  await page.getByLabel("作品タイトル *").fill("登録時の作品");
+  await page.getByRole("button", { name: "作品を作る" }).click();
+  await expect(page).toHaveURL(/\/creative\/projects\/c[a-z0-9]+$/);
 
   await page.goto("/quotes/new");
   await page.getByRole("button", { name: "テキストを入力" }).click();
@@ -131,9 +145,30 @@ test("新しいフレーズの登録画面で知識を選び、保存と一緒�
   await section.getByRole("button", { name: "「選んで外す知識」を外す" }).click();
   await expect(section.getByText("選んで外す知識")).toHaveCount(0);
 
+  // 創作に使う：作品に関連付け ＋ 創作メモを作る（どちらも保存時に反映）
+  const creative = page.getByRole("region", { name: "創作への利用" });
+  await creative.getByRole("button", { name: "創作に使う" }).click();
+  await dialog.getByRole("tab", { name: /作品に関連付け/ }).click();
+  await dialog.getByLabel("作品", { exact: true }).selectOption({ label: "登録時の作品" });
+  await dialog.getByRole("button", { name: "会話" }).click();
+  await dialog.getByRole("button", { name: "関連付ける（保存時）" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(creative).toContainText("登録時の作品 ／ 作品全体（会話）");
+
+  await creative.getByRole("button", { name: "創作に使う" }).click();
+  await dialog.getByRole("radio", { name: /設定/ }).click();
+  await dialog.getByLabel("タイトル", { exact: true }).fill("登録時に作るメモ");
+  await dialog.getByRole("button", { name: "創作メモを作る（保存時）" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(creative).toContainText("登録時に作るメモ");
+
   await page.getByRole("button", { name: "保存する" }).click();
   await expect(page).toHaveURL(/\/quotes\/c[a-z0-9]+$/);
   const saved = page.getByRole("region", { name: "関連する知識" });
   await expect(saved.getByRole("link", { name: /登録時につなぐ知識/ })).toBeVisible();
   await expect(saved.getByText("選んで外す知識")).toHaveCount(0);
+  const usage = page.getByRole("region", { name: "創作への利用" });
+  await expect(usage.getByRole("link", { name: "✍️ 登録時の作品" })).toBeVisible();
+  await expect(usage).toContainText("会話");
+  await expect(usage.getByText("登録時に作るメモ")).toBeVisible();
 });

@@ -10,9 +10,10 @@ import { Sheet, SheetContent, Tabs, TabsContent, TabsList, TabsTrigger } from "@
 import { CategoryChips, CategoryBadge } from "./bits";
 import { NoteForm } from "./note-form";
 import { TargetPicker, type TargetValue } from "./target-picker";
-import { SaveToCkBody } from "@/components/creative-knowledge/save-to-ck";
+import { SaveToCkBody, type CkQueued } from "@/components/creative-knowledge/save-to-ck";
 import { createLinkAction, pickCreativeNotesAction } from "@/server/actions/creative";
-import { LINK_SOURCE_LABEL, type CreativeCategory, type LinkSourceKind, type LinkTargetKind } from "@/lib/constants";
+import type { CreativeUse } from "@/lib/validators";
+import { CREATIVE_CATEGORY_LABEL, LINK_SOURCE_LABEL, type CreativeCategory, type LinkSourceKind, type LinkTargetKind } from "@/lib/constants";
 
 /** カテゴリから自然な紐付け先を推測（人物メモ → 人物 など） */
 function kindForCategory(c: CreativeCategory): Exclude<LinkTargetKind, "note"> {
@@ -30,6 +31,29 @@ function kindForCategory(c: CreativeCategory): Exclude<LinkTargetKind, "note"> {
     default:
       return "project";
   }
+}
+
+/** まだ保存していないフレーズの「創作に使う」：保存したあとで実行する内容と、画面に出す説明 */
+export type QueuedCreativeUse = CreativeUse & { label: string };
+
+/**
+ * 新しいフレーズの登録画面の「創作に使う」。中身はフレーズの画面と同じだが、その場では保存せず予約する（onQueue）。
+ * 予約した内容は、フレーズを保存したときに一緒に実行される。
+ */
+export function QueueCreativeUseButton({ onQueue, defaultTitle = "", defaultContent = "" }: { onQueue: (use: QueuedCreativeUse) => void; defaultTitle?: string; defaultContent?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Sparkles /> 創作に使う
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen} repositionInputs={false}>
+        <SheetContent title="創作に使う" description="このフレーズを何に使いますか？フレーズを保存するときに一緒に反映されます">
+          <UseInCreativeBody source={{ kind: "quote", id: "" }} defaultTitle={defaultTitle} defaultContent={defaultContent} onDone={() => setOpen(false)} onQueue={onQueue} />
+        </SheetContent>
+      </Sheet>
+    </>
+  );
 }
 
 export function UseInCreativeButton({
@@ -63,11 +87,14 @@ function UseInCreativeBody({
   defaultTitle,
   defaultContent,
   onDone,
+  onQueue,
 }: {
   source: { kind: Exclude<LinkSourceKind, "note">; id: string };
   defaultTitle: string;
   defaultContent: string;
   onDone: () => void;
+  /** 指定すると保存せず予約する（まだ保存していないフレーズ） */
+  onQueue?: (use: QueuedCreativeUse) => void;
 }) {
   const router = useRouter();
   // 創作知識は「作品に関連付け」が主な使い方
@@ -80,6 +107,10 @@ function UseInCreativeBody({
 
   function linkToProject() {
     if (!target) return void toast.error("紐付け先を選んでください");
+    if (onQueue) {
+      onQueue({ type: "link", target: target.target, purpose: target.purpose || null, label: `✍️ ${target.label}${target.purpose ? `（${target.purpose}）` : ""}` });
+      return onDone();
+    }
     start(async () => {
       const res = await createLinkAction({ source, target: target.target, purpose: target.purpose || null });
       if (!res.ok) return void toast.error(res.error);
@@ -134,7 +165,22 @@ function UseInCreativeBody({
               key={category}
               initial={{ title: defaultTitle, content: defaultContent, category }}
               link={{ source, target: alsoProject && target ? target.target : undefined, purpose: alsoProject ? target?.purpose || null : null }}
-              submitLabel="創作メモを作成"
+              submitLabel={onQueue ? "創作メモを作る（保存時）" : "創作メモを作成"}
+              onSubmitValues={
+                onQueue
+                  ? (note) => {
+                      const t = alsoProject && target ? target : null;
+                      onQueue({
+                        type: "note",
+                        note,
+                        target: t?.target ?? null,
+                        purpose: t?.purpose || null,
+                        label: `💡 創作メモを作る「${note.title.trim() || note.content.trim().split("\n")[0].slice(0, 30)}」（${CREATIVE_CATEGORY_LABEL[note.category]}）${t ? ` → ${t.label}` : ""}`,
+                      });
+                      onDone();
+                    }
+                  : undefined
+              }
               onSaved={(id) => {
                 onDone();
                 router.push(`/creative/notes/${id}`);
@@ -148,24 +194,36 @@ function UseInCreativeBody({
       <TabsContent value="project" className="space-y-4">
         <TargetPicker onChange={setTarget} />
         <Button size="lg" className="w-full" onClick={linkToProject} disabled={pending || !target}>
-          {pending ? <Loader2 className="animate-spin" /> : <Link2 />} 関連付ける
+          {pending ? <Loader2 className="animate-spin" /> : <Link2 />} {onQueue ? "関連付ける（保存時）" : "関連付ける"}
         </Button>
       </TabsContent>
 
       <TabsContent value="existing">
-        <ExistingNotePicker source={source} onDone={onDone} />
+        <ExistingNotePicker source={source} onDone={onDone} onQueue={onQueue} />
       </TabsContent>
 
       {source.kind !== "ck" ? (
         <TabsContent value="ck">
-          <SaveToCkBody source={{ kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }} onDone={onDone} />
+          <SaveToCkBody
+            source={{ kind: source.kind === "knowledge" ? "knowledgeNote" : source.kind, id: source.id }}
+            onDone={onDone}
+            onQueue={onQueue ? (use: CkQueued) => onQueue({ ...use, location: use.location || null, comment: use.comment || null }) : undefined}
+          />
         </TabsContent>
       ) : null}
     </Tabs>
   );
 }
 
-function ExistingNotePicker({ source, onDone }: { source: { kind: Exclude<LinkSourceKind, "note">; id: string }; onDone: () => void }) {
+function ExistingNotePicker({
+  source,
+  onDone,
+  onQueue,
+}: {
+  source: { kind: Exclude<LinkSourceKind, "note">; id: string };
+  onDone: () => void;
+  onQueue?: (use: QueuedCreativeUse) => void;
+}) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [items, setItems] = useState<Awaited<ReturnType<typeof pickCreativeNotesAction>> | null>(null);
@@ -191,15 +249,19 @@ function ExistingNotePicker({ source, onDone }: { source: { kind: Exclude<LinkSo
               <button
                 type="button"
                 disabled={pending}
-                onClick={() =>
+                onClick={() => {
+                  if (onQueue) {
+                    onQueue({ type: "link", target: { kind: "note", id: n.id }, purpose: null, label: `💡 創作メモ「${n.title}」に関連付ける` });
+                    return onDone();
+                  }
                   start(async () => {
                     const res = await createLinkAction({ source, target: { kind: "note", id: n.id }, purpose: null });
                     if (!res.ok) return void toast.error(res.error);
                     toast.success(`「${n.title}」に関連付けました`);
                     onDone();
                     router.refresh();
-                  })
-                }
+                  });
+                }}
                 className="flex min-h-12 w-full items-center gap-2 py-2 text-left"
               >
                 <span className="min-w-0 flex-1 truncate font-medium">💡 {n.title}</span>

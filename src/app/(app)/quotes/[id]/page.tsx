@@ -48,6 +48,7 @@ export default async function QuotePage({ params, searchParams }: { params: Prom
         {editing ? (
           <QuoteForm
             quoteId={q.id}
+            submitSlotId="quote-submit"
             initial={{
               text: q.text,
               pageNumber: q.pageNumber ?? "",
@@ -115,6 +116,8 @@ export default async function QuotePage({ params, searchParams }: { params: Prom
           保存日 {format(q.createdAt, "yyyy/M/d HH:mm")}
           {q.updatedAt.getTime() - q.createdAt.getTime() > 60000 ? ` ・ 更新 ${format(q.updatedAt, "yyyy/M/d")}` : ""}
         </p>
+        {/* 編集中の「更新する」は、関連する知識・創作への利用まで見終えたこの位置（削除の上）に出す */}
+        {editing ? <div id="quote-submit" /> : null}
         <DeleteQuoteButton id={q.id} />
       </article>
     </div>

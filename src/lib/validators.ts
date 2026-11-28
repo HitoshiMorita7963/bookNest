@@ -303,3 +303,27 @@ export const creativeKnowledgeInputSchema = z
   })
   .transform((v) => ({ ...v, extraCategories: Array.from(new Set(v.extraCategories.filter((c) => c !== v.category))) }));
 export type CreativeKnowledgeInput = z.input<typeof creativeKnowledgeInputSchema>;
+
+/* ---------------- 保存前に予約する「創作に使う」 ---------------- */
+
+const linkTarget = z.object({ kind: z.enum(LINK_TARGET_KINDS), id: z.string().min(1).max(50) });
+const refNote = { comment: optText(2000), location: optText(100) };
+
+/**
+ * まだ保存していないフレーズで「創作に使う」を選んだときの内容。保存したあとで、フレーズを元資料として実行する。
+ * link：作品（人物・シーンなど）や既存の創作メモにつなぐ / note：創作メモを作る（作品にも追加できる）
+ * ck-new：創作知識を作る / ck-ref：既存の創作知識の参考にする
+ */
+export const creativeUseSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("link"), target: linkTarget, purpose: optText(60) }),
+  z.object({
+    type: z.literal("note"),
+    note: z.object({ title: z.string().max(120).default(""), content: z.string().max(20000).default(""), category: z.enum(CREATIVE_CATEGORIES).default("OTHER") }),
+    target: linkTarget.nullish(),
+    purpose: optText(60),
+  }),
+  z.object({ type: z.literal("ck-new"), ck: z.object({ title: z.string().trim().min(1).max(120), category: z.enum(CK_CATEGORIES), subCategory: optText(60) }), ...refNote }),
+  z.object({ type: z.literal("ck-ref"), knowledgeId: z.string().min(1).max(50), ...refNote }),
+]);
+export type CreativeUse = z.input<typeof creativeUseSchema>;
+export const creativeUsesSchema = z.array(creativeUseSchema).max(20).default([]);
