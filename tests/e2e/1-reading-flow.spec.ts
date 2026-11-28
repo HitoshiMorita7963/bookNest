@@ -61,6 +61,9 @@ test("読書の一連の流れ（スマートフォン）", async ({ page }) => 
   // 読了
   await page.goto("/reading");
   await page.getByRole("button", { name: "読了する" }).click();
+  // 読み始めた日は、読書を始めた日（今日）が最初から入っている
+  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  await expect(page.getByLabel("読み始めた日")).toHaveValue(today);
   await page.getByRole("radio", { name: "5つ星" }).click();
   await page.getByLabel("感想").fill("とても良い本だった");
   await page.getByLabel("学んだこと", { exact: true }).fill("自己理解の大切さ");

@@ -114,7 +114,7 @@ export default async function HomePage() {
               </div>
             </div>
             <div className="mt-4">
-              <ReadingQuickActions book={{ id: current.id, title: current.title, status: current.status, currentPage: current.currentPage, pageCount: current.pageCount }} size="compact" />
+              <ReadingQuickActions book={{ id: current.id, title: current.title, status: current.status, currentPage: current.currentPage, pageCount: current.pageCount, startedAt: current.startedAt }} size="compact" />
             </div>
           </div>
         ) : total > 0 ? (
